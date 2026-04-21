@@ -1,231 +1,319 @@
-from pyspark.sql import functions as F
-from pyspark.sql.functions import when, col, regexp_replace, expr, lit
-from etl.ingest import load_table
+import numpy as np
+import pandas as pd
 
-def clean_column_names(df):
-    """Lowercase column names, replace spaces with underscores, remove dots and special chars.""" 
-    new_cols = []
-    for c in df.columns:
-        #Handle special cases first
-        new_col = c.lower()
-        new_col = new_col.replace(" ", "_")
-        new_col = new_col.replace(".", "")
-        new_col = new_col.replace("%", "pct")
-        new_col = new_col.replace("/", "_per_")
-        new_col = new_col.replace("(", "").replace(")", "")
-        new_col = new_col.replace("-", "_")
-        #Take care of columns starting with numbers
-        if new_col.startswith("3"):
-            new_col = "three_" + new_col[1:]
-        if new_col.startswith("2"):
-            new_col = "two_" + new_col[1:]
-        new_cols.append(new_col)
-    
-    for old, new in zip(df.columns, new_cols):
-        df = df.withColumnRenamed(old, new)
+
+# ── Column normalization ──────────────────────────────────────────────────────
+
+def normalize_team_stats(df: pd.DataFrame) -> pd.DataFrame:
+    """Rename nba_api uppercase columns to clean snake_case."""
+    rename_map = {
+        "TEAM_ID": "team_id",
+        "TEAM_ABBREVIATION": "team_abbr",
+        "TEAM_NAME": "team_name",
+        "GP": "games_played",
+        "W": "wins",
+        "L": "losses",
+        "WIN_PCT": "win_pct",
+        "PTS": "pts_pg",
+        "REB": "reb_pg",
+        "AST": "ast_pg",
+        "STL": "stl_pg",
+        "BLK": "blk_pg",
+        "TOV": "tov_pg",
+        "OFF_RATING": "off_rating",
+        "DEF_RATING": "def_rating",
+        "NET_RATING": "net_rating",
+        "PACE": "pace",
+        "TS_PCT": "ts_pct",
+        "EFG_PCT": "efg_pct",
+        "OREB_PCT": "oreb_pct",
+        "DREB_PCT": "dreb_pct",
+        "TM_TOV_PCT": "tm_tov_pct",
+    }
+    df = df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns})
+    if "ast_pg" in df.columns and "tov_pg" in df.columns:
+        df["ast_to_ratio"] = df["ast_pg"] / df["tov_pg"].replace(0, np.nan)
     return df
 
-def safe_cast_numeric(df, column_name):
-    """Safely cast a column to numeric, handling all edge cases"""
-    if column_name not in df.columns:
-        return df
-    
-    try:
-        #Casting Approach
-        df = df.withColumn(f"{column_name}_numeric", 
-            expr(f"""
-                CASE 
-                    WHEN {column_name} IS NULL THEN NULL
-                    WHEN trim({column_name}) = '' THEN NULL
-                    WHEN trim({column_name}) = 'null' THEN NULL
-                    WHEN trim({column_name}) RLIKE '^[+-]?[0-9]*\\.?[0-9]+([eE][+-]?[0-9]+)?$' THEN 
-                        CAST(trim({column_name}) AS DOUBLE)
-                    ELSE NULL
-                END
-            """)
+
+def normalize_player_stats(df: pd.DataFrame) -> pd.DataFrame:
+    """Rename nba_api uppercase player columns to clean snake_case."""
+    rename_map = {
+        "PLAYER_ID": "player_id",
+        "PLAYER_NAME": "player_name",
+        "TEAM_ID": "team_id",
+        "AGE": "age",
+        "GP": "games_played",
+        "MIN": "minutes_pg",
+        "PTS": "pts_pg",
+        "PIE": "pie",
+        "NET_RATING": "net_rating",
+        "USG_PCT": "usg_pct",
+        "TS_PCT": "ts_pct",
+    }
+    df = df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns})
+    keep = [v for v in rename_map.values() if v in df.columns] + ["season_year"]
+    return df[[c for c in keep if c in df.columns]].copy()
+
+
+# ── Player-level aggregation ──────────────────────────────────────────────────
+
+# Minimum games threshold for PIE/age aggregation.
+# Players with fewer games have volatile per-game stats that skew team averages.
+# Verified via live API: e.g. 2024-25 Alondes Williams PIE=0.40 from 1 game, 3.7 min.
+_MIN_GAMES_FOR_PIE = 10
+
+
+def aggregate_player_features(player_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Aggregate player-level stats to team-season level.
+
+    Features produced:
+        team_avg_pie        — minutes-weighted avg PIE (Player Impact Estimate)
+        team_avg_age        — minutes-weighted average roster age
+        avg_games_played    — avg games played for top-8-minute players (injury proxy)
+        star_age_flag       — True if any player is 32+ and averages 30+ min/game
+
+    Players with < _MIN_GAMES_FOR_PIE games are excluded from PIE and age
+    aggregations to prevent small-sample noise from skewing team features.
+    They remain in games_played and star_age_flag calculations.
+    """
+    rows = []
+    for (team_id, season_year), group in player_df.groupby(["team_id", "season_year"]):
+        group = group.copy()
+
+        # Qualified players only: exclude fringe call-ups with tiny sample sizes
+        qualified = group[group["games_played"] >= _MIN_GAMES_FOR_PIE]
+        total_min = qualified["minutes_pg"].sum()
+        if total_min == 0:
+            continue
+
+        qualified = qualified.copy()
+        qualified["min_share"] = qualified["minutes_pg"] / total_min
+
+        team_avg_pie = (
+            (qualified["pie"] * qualified["min_share"]).sum()
+            if "pie" in qualified.columns else np.nan
         )
-        #Replace original column with numeric version
-        df = df.drop(column_name).withColumnRenamed(f"{column_name}_numeric", column_name)
-        return df
-    except Exception as e:
-        print(f"Error safely casting {column_name}: {e}")
-        return df
+        team_avg_age = (
+            (qualified["age"] * qualified["min_share"]).sum()
+            if "age" in qualified.columns else np.nan
+        )
 
-def clean_df(df):
+        # Use full group (not qualified) for injury proxy — a star playing < 10 games
+        # IS the injury signal we want to capture.
+        top8 = group.nlargest(8, "minutes_pg")
+        avg_games_played = top8["games_played"].mean() if len(top8) > 0 else np.nan
+
+        star_age_flag = bool(
+            ((group["age"] >= 32) & (group["minutes_pg"] >= 30)).any()
+        ) if "age" in group.columns else False
+
+        rows.append({
+            "team_id": team_id,
+            "season_year": season_year,
+            "team_avg_pie": team_avg_pie,
+            "team_avg_age": team_avg_age,
+            "avg_games_played": avg_games_played,
+            "star_age_flag": star_age_flag,
+        })
+
+    return pd.DataFrame(rows)
+
+
+def compute_roster_turnover(player_df: pd.DataFrame) -> pd.DataFrame:
     """
-    Clean dataframe with robust error handling
+    Compute roster_turnover_pct for each team-season.
+    = fraction of minutes played by players new to the team vs the prior season.
+    First season per team returns NaN (no prior to compare against).
     """
-    if df is None:
-        return None
-    
-    print(f"Cleaning dataframe with {df.count()} rows and columns: {df.columns}")
-    
-    df = clean_column_names(df)
-    
-    #More selective and only casting columns that exist
-    potential_numeric_cols = [
-        "rk", "age", "g", "gs", "mp", 
-        "fg", "fga", "fgpct", "three_p", "three_pa", "three_ppct",
-        "two_p", "two_pa", "two_ppct", "efgpct", "ft", "fta", "ftpct",
-        "orb", "drb", "trb", "ast", "stl", "blk", "tov", "pf", "pts",
-        "per", "tspct", "three_par", "ftr", "orbpct", "drbpct", "trbpct",
-        "astpct", "stlpct", "blkpct", "tovpct", "usgpct", "ows", "dws",
-        "ws", "ws_per_48", "obpm", "dbpm", "bpm", "vorp",
-        "tm", "opp", "w", "l", "trp_dbl", "year"
+    rows = []
+    grouped = {k: v for k, v in player_df.groupby(["team_id", "season_year"])}
+
+    for (team_id, season_year), current in grouped.items():
+        prior = grouped.get((team_id, season_year - 1))
+
+        if prior is None or prior.empty:
+            rows.append({"team_id": team_id, "season_year": season_year, "roster_turnover_pct": np.nan})
+            continue
+
+        total_min = current["minutes_pg"].sum()
+        if total_min == 0:
+            rows.append({"team_id": team_id, "season_year": season_year, "roster_turnover_pct": np.nan})
+            continue
+
+        prior_ids = set(prior["player_id"].unique())
+        new_min = current[~current["player_id"].isin(prior_ids)]["minutes_pg"].sum()
+        rows.append({
+            "team_id": team_id,
+            "season_year": season_year,
+            "roster_turnover_pct": float(new_min / total_min),
+        })
+
+    return pd.DataFrame(rows)
+
+
+# ── Lag features ──────────────────────────────────────────────────────────────
+
+def add_lag_features(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add prior-season features for each team.
+
+    Uses groupby(team_id).shift(1) — never a global shift — to prevent
+    one team's stats from bleeding into another team's lag values.
+    First season per team will have NaN lag features; these rows are
+    dropped during model training but retained for inference.
+    """
+    df = df.sort_values(["team_id", "season_year"]).copy()
+    lag_cols = [
+        "wins", "wins_normalized",
+        "off_rating", "def_rating", "net_rating",
+        "pts_pg", "ts_pct", "ast_to_ratio", "pace",
+        "oreb_pct", "dreb_pct", "tm_tov_pct",
+        "team_avg_pie", "playoff_team",
     ]
-    
-    numeric_cols_to_cast = [col for col in potential_numeric_cols if col in df.columns]
-    
-    print(f"Will attempt to cast these columns to numeric: {numeric_cols_to_cast}")
-    
-    for col_name in numeric_cols_to_cast:
-        df = safe_cast_numeric(df, col_name)
-        print(f"Processed column: {col_name}")
-    
-    #Drop rows without 'player' for player-level tables
-    if "player" in df.columns:
-        df = df.filter(col("player").isNotNull())
-        #Also filter out empty strings safely
-        df = df.filter(~(col("player") == ""))
-    
-    print(f"Cleaned dataframe now has {df.count()} rows")
+    for col in lag_cols:
+        if col in df.columns:
+            df[f"prev_{col}"] = df.groupby("team_id")[col].shift(1)
     return df
 
-def transform_data():
+
+# ── ML feature table assembly ─────────────────────────────────────────────────
+
+def build_ml_features(
+    team_df: pd.DataFrame,
+    player_agg_df: pd.DataFrame,
+    turnover_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Join team stats + player aggregates + roster turnover, then add lag features."""
+    df = team_df.merge(player_agg_df, on=["team_id", "season_year"], how="left")
+    df = df.merge(turnover_df, on=["team_id", "season_year"], how="left")
+
+    # Normalize wins to 82-game pace to handle shortened seasons.
+    # 2019-20: 65-72 games (COVID bubble). 2011-12: 66 games (lockout).
+    # Raw wins kept for app display; wins_normalized is the model training target.
+    df["wins_normalized"] = (df["wins"] / df["games_played"] * 82).round(1)
+
+    # playoff_team threshold uses normalized wins so shortened seasons don't
+    # artificially shift teams below the 44-win cutoff.
+    df["playoff_team"] = df["wins_normalized"] >= 44
+
+    df = add_lag_features(df)
+
+    # prev_playoff_team arrives from add_lag_features as a float (0/1) — cast to bool.
+    if "prev_playoff_team" in df.columns:
+        df["prev_playoff_team"] = df["prev_playoff_team"].astype("boolean")
+
+    return df
+
+
+# ── Prediction mode & inference feature row ───────────────────────────────────
+
+def detect_prediction_mode(games_played: int) -> str:
+    """Return 'preseason' if fewer than 20 games played, 'mid-season' otherwise."""
+    return "preseason" if games_played < 20 else "mid-season"
+
+
+def build_feature_row(
+    team_id: int,
+    season_year: int,
+    ml_features_df: pd.DataFrame,
+    current_partial_stats: dict = None,
+    games_played: int = 0,
+) -> pd.DataFrame:
     """
-    Load all tables, clean them, and produce season-level features.
+    Build a single-row feature vector for inference (any team, any season).
+
+    Preseason  (games_played < 20): use prior season's final stats as all features.
+    Mid-season (games_played >= 20): blend current partial-season stats with prior
+        season stats weighted by games_played/82. Injured players' reduced games_played
+        and the team's lower net_rating automatically reflect their absence.
     """
-    #Load and clean tables
-    tables = {}
-    table_names = ["Roster", "RegSeason", "PerGame", "Totals", "Advanced", "TeamOpponent"]
-    
-    for table_name in table_names:
-        print(f"\n{'='*30} Loading {table_name} {'='*30}")
-        try:
-            df = load_table(table_name)
-            if df is not None:
-                df = clean_df(df)
-                tables[table_name] = df
-                print(f"Successfully cleaned {table_name}")
+    mode = detect_prediction_mode(games_played)
+
+    prior_rows = ml_features_df[
+        (ml_features_df["team_id"] == team_id) &
+        (ml_features_df["season_year"] == season_year - 1)
+    ]
+    if prior_rows.empty:
+        raise ValueError(f"No prior season data for team {team_id}, season {season_year - 1}")
+
+    prior = prior_rows.iloc[0].to_dict()
+
+    base = {
+        "team_id": team_id,
+        "season_year": season_year,
+        "prediction_mode": mode,
+        # lag features from prior season
+        "prev_wins": prior.get("wins"),
+        "prev_wins_normalized": prior.get("wins_normalized"),
+        "prev_off_rating": prior.get("off_rating"),
+        "prev_def_rating": prior.get("def_rating"),
+        "prev_net_rating": prior.get("net_rating"),
+        "prev_pts_pg": prior.get("pts_pg"),
+        "prev_ts_pct": prior.get("ts_pct"),
+        "prev_ast_to_ratio": prior.get("ast_to_ratio"),
+        "prev_pace": prior.get("pace"),
+        "prev_oreb_pct": prior.get("oreb_pct"),
+        "prev_dreb_pct": prior.get("dreb_pct"),
+        "prev_tm_tov_pct": prior.get("tm_tov_pct"),
+        "prev_team_avg_pie": prior.get("team_avg_pie"),
+        "prev_playoff_team": prior.get("playoff_team"),
+        # roster features (from prior season for preseason; may be updated for mid-season)
+        "team_avg_age": prior.get("team_avg_age"),
+        "roster_turnover_pct": prior.get("roster_turnover_pct"),
+        "avg_games_played": prior.get("avg_games_played"),
+        "star_age_flag": prior.get("star_age_flag"),
+    }
+
+    # blendable current-season features
+    blend_cols = [
+        "off_rating", "def_rating", "net_rating",
+        "pts_pg", "ts_pct", "ast_to_ratio", "pace",
+        "oreb_pct", "dreb_pct", "tm_tov_pct",
+        "team_avg_pie",
+    ]
+
+    if mode == "preseason" or not current_partial_stats:
+        for col in blend_cols:
+            base[col] = prior.get(col)
+    else:
+        w_curr = games_played / 82
+        w_prior = 1.0 - w_curr
+        for col in blend_cols:
+            curr_val = current_partial_stats.get(col)
+            prior_val = prior.get(col)
+            if curr_val is not None and prior_val is not None:
+                base[col] = curr_val * w_curr + prior_val * w_prior
             else:
-                print(f"Warning: {table_name} not loaded")
-        except Exception as e:
-            print(f"Error processing {table_name}: {e}")
+                base[col] = prior_val
+        base["avg_games_played"] = current_partial_stats.get("avg_games_played", prior.get("avg_games_played"))
 
-    #RegSeason data - calculate wins per season
-    print(f"\n{'='*30} Processing RegSeason {'='*30}")
-    reg_df = tables.get("RegSeason")
-    season_wins = None
-    
-    if reg_df is not None:
-        print(f"RegSeason columns: {reg_df.columns}")
-        
-        #Check if we have the W/L columns after cleaning
-        if "w" in reg_df.columns and "l" in reg_df.columns and "year" in reg_df.columns:
-            try:
-                #Filter out any rows where year, w, or l is null
-                reg_df_clean = reg_df.filter(
-                    col("year").isNotNull() & 
-                    col("w").isNotNull() & 
-                    col("l").isNotNull()
-                )
-                
-                print(f"RegSeason rows after cleaning: {reg_df_clean.count()}")
-                
-                if reg_df_clean.count() > 0:
-                    #Group by year and sum wins/losses
-                    season_wins = reg_df_clean.groupBy("year").agg(
-                        F.sum("w").alias("wins"),
-                        F.sum("l").alias("losses"),
-                        F.count("*").alias("games_played")
-                    )
-                    print(f"Season wins calculated for {season_wins.count()} years")
-                else:
-                    print("No valid RegSeason data after cleaning")
-            except Exception as e:
-                print(f"Error processing RegSeason: {e}")
-        else:
-            print("Missing required columns (w, l, year) in RegSeason")
-    
-    #If couldn't get season wins, create a dummy dataset
-    if season_wins is None:
-        print("Creating dummy season wins data")
-        season_wins = tables.get("PerGame", tables.get("Advanced"))
-        if season_wins and "year" in season_wins.columns:
-            season_wins = season_wins.select("year").distinct().withColumn("wins", lit(0))
+    return pd.DataFrame([base])
 
-    #Use PerGame data for team averages
-    print(f"\n{'='*30} Processing PerGame {'='*30}")
-    pergame_df = tables.get("PerGame")
-    team_features = None
-    
-    if pergame_df is not None:
-        available_cols = pergame_df.columns
-        print(f"PerGame columns: {available_cols}")
-        
-        #Filter for valid data
-        if "player" in pergame_df.columns and "year" in pergame_df.columns:
-            pergame_clean = pergame_df.filter(
-                col("player").isNotNull() & 
-                col("year").isNotNull()
-            )
-            
-            print(f"PerGame rows after cleaning: {pergame_clean.count()}")
-            
-            if pergame_clean.count() > 0:
-                #Build aggregation expressions for available columns
-                agg_exprs = []
-                
-                #Map of column names to aggregation aliases
-                agg_mapping = {
-                    "pts": "avg_pts",
-                    "fgpct": "avg_fg_pct", 
-                    "three_ppct": "avg_3p_pct",
-                    "ftpct": "avg_ft_pct",
-                    "ast": "avg_ast",
-                    "trb": "avg_reb",
-                    "stl": "avg_stl",
-                    "blk": "avg_blk", 
-                    "tov": "avg_tov",
-                    "efgpct": "avg_efg_pct"
-                }
-                
-                for col_name, alias in agg_mapping.items():
-                    if col_name in available_cols:
-                        agg_exprs.append(F.avg(col_name).alias(alias))
-                        print(f"Added aggregation for {col_name} -> {alias}")
-                
-                if agg_exprs:
-                    try:
-                        team_features = pergame_clean.groupBy("year").agg(*agg_exprs)
-                        print(f"Team features calculated for {team_features.count()} years")
-                    except Exception as e:
-                        print(f"Error aggregating PerGame data: {e}")
-                        team_features = pergame_clean.select("year").distinct()
-                else:
-                    print("No valid columns for aggregation")
-                    team_features = pergame_clean.select("year").distinct()
 
-    #Combine features and wins
-    print(f"\n{'='*30} Combining Results {'='*30}")
-    dataset = None
-    
-    try:
-        if team_features is not None and season_wins is not None:
-            print("Joining team features with season wins")
-            dataset = team_features.join(season_wins, on="year", how="inner")
-        elif season_wins is not None:
-            print("Using only season wins")
-            dataset = season_wins
-        elif team_features is not None:
-            print("Using only team features")
-            dataset = team_features.withColumn("wins", lit(0))
-        
-        if dataset is not None:
-            print(f"Final dataset has {dataset.count()} rows")
-            print("Final dataset columns:", dataset.columns)
-            
-    except Exception as e:
-        print(f"Error combining datasets: {e}")
+# ── Top-level orchestrator ────────────────────────────────────────────────────
 
-    return dataset
+def transform_data(raw_data: dict) -> dict:
+    """
+    Full transform pipeline: normalize → aggregate players → compute turnover
+    → join → add lag features → build ML feature table.
+
+    Returns dict with keys: "team_stats", "player_stats", "ml_features"
+    """
+    team_df = normalize_team_stats(raw_data["team_stats"])
+    player_df = normalize_player_stats(raw_data["player_stats"])
+
+    player_agg_df = aggregate_player_features(player_df)
+    turnover_df = compute_roster_turnover(player_df)
+    ml_features_df = build_ml_features(team_df, player_agg_df, turnover_df)
+
+    print(
+        f"Transform complete: {len(team_df)} team rows, "
+        f"{len(player_df)} player rows, {len(ml_features_df)} ML feature rows"
+    )
+    return {
+        "team_stats": team_df,
+        "player_stats": player_df,
+        "ml_features": ml_features_df,
+    }
