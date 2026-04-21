@@ -1,44 +1,44 @@
+import json
 import os
-import joblib
-from models.data_prep import load_and_prepare_data
-from sklearn.metrics import r2_score, mean_squared_error
 import numpy as np
+from sklearn.metrics import r2_score, mean_squared_error
 
-#Load data
-X, y = load_and_prepare_data()
 
-# Only use lag features (prev_*) for evaluation
-lag_features = ['avg_pts', 'avg_fg_pct', 'avg_3p_pct', 'avg_ft_pct', 
-                'avg_efg_pct', 'avg_ast', 'avg_reb', 'avg_stl', 
-                'avg_blk', 'avg_tov']
+def evaluate_model(model, X_test, y_test) -> dict:
+    """
+    Evaluate a regression model on the holdout set.
+    Returns a dict of metrics; does not execute on import.
+    """
+    y_pred = model.predict(X_test)
+    r2 = float(r2_score(y_test, y_pred))
+    rmse = float(np.sqrt(mean_squared_error(y_test, y_pred)))
+    mae = float(np.mean(np.abs(y_test.values - y_pred)))
 
-#Make lagged columns if not already created
-for col in lag_features:
-    if f'prev_{col}' not in X.columns:
-        X[f'prev_{col}'] = X[col].shift(1)
+    return {
+        "r2": round(r2, 4),
+        "rmse": round(rmse, 4),
+        "mae": round(mae, 4),
+        "n_samples": int(len(y_test)),
+    }
 
-#Drop first row with NaN lag values
-X = X.iloc[1:]
-y = y.iloc[1:]
 
-#Select only lagged columns for the model
-feature_cols = [f'prev_{col}' for col in lag_features]
-X_model = X[feature_cols]
+def check_quality_gate(metrics: dict) -> bool:
+    """
+    Hard gate that must pass before moving to Phase 3.
+    R² > 0.75 AND RMSE < 6 wins on the holdout set.
+    """
+    passed = metrics["r2"] > 0.75 and metrics["rmse"] < 6.0
+    status = "PASSED" if passed else "FAILED"
+    print(
+        f"Quality gate {status}: R²={metrics['r2']:.4f} (need >0.75), "
+        f"RMSE={metrics['rmse']:.4f} (need <6.0)"
+    )
+    return passed
 
-# Chronological train/test split
-split_idx = int(len(X_model) * 0.8)
-X_train, X_test = X_model.iloc[:split_idx], X_model.iloc[split_idx:]
-y_train, y_test = y.iloc[:split_idx], y.iloc[split_idx:]
 
-# Load trained model
-model_path = os.path.join(os.path.dirname(__file__), "xgb_future_wins_model.pkl")
-model = joblib.load(model_path)
-
-# Predict and evaluate
-y_pred = model.predict(X_test)
-
-r2 = r2_score(y_test, y_pred)
-rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-
-print("R²:", r2)
-print("RMSE:", rmse)
+def write_eval_report(report: dict, path: str = "processed/eval_report.json"):
+    """Persist evaluation metrics to disk for CI and app reference."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(report, f, indent=2, default=str)
+    print(f"Eval report written to {path}")
