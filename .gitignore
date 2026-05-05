@@ -211,6 +211,7 @@ __marimo__/
 # Local tools / configs
 .claude/
 settings.local.json
+CLAUDE.md
 
 # Mac
 .DS_Store
