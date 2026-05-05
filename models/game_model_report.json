@@ -1,0 +1,78 @@
+{
+  "winner": "logistic",
+  "trained_at": "2026-05-05T15:57:56.000811",
+  "feature_cols": [
+    "team_rolling_win_pct_5",
+    "team_rolling_win_pct_10",
+    "opp_rolling_win_pct_5",
+    "opp_rolling_win_pct_10",
+    "team_prev_net_rating",
+    "team_prev_off_rating",
+    "team_prev_def_rating",
+    "opp_prev_net_rating",
+    "opp_prev_off_rating",
+    "opp_prev_def_rating",
+    "home_flag",
+    "rest_days",
+    "opp_rest_days",
+    "days_into_season"
+  ],
+  "n_training_games": 55102,
+  "n_test_games": 6288,
+  "holdout_seasons": 3,
+  "gate_passed": true,
+  "winner_metrics": {
+    "holdout_logloss": 0.6076,
+    "holdout_auc": 0.7287,
+    "holdout_accuracy": 0.6587
+  },
+  "baseline_metrics": {
+    "baseline_logloss": 1.9313,
+    "baseline_auc": 0.5819,
+    "baseline_accuracy": 0.5819
+  },
+  "improvement_over_baseline": 1.3237,
+  "baseline_warning": null,
+  "all_holdout_metrics": {
+    "xgboost": {
+      "holdout_logloss": 0.6121,
+      "holdout_auc": 0.7224,
+      "holdout_accuracy": 0.6582
+    },
+    "logistic": {
+      "holdout_logloss": 0.6076,
+      "holdout_auc": 0.7287,
+      "holdout_accuracy": 0.6587
+    },
+    "random_forest": {
+      "holdout_logloss": 0.6193,
+      "holdout_auc": 0.7261,
+      "holdout_accuracy": 0.6648
+    }
+  },
+  "cv_results": {
+    "xgboost": {
+      "cv_logloss": 0.6365,
+      "cv_logloss_std": 0.0198,
+      "cv_auc": 0.6914,
+      "cv_train_logloss": 0.5738,
+      "overfitting_gap": -0.0626
+    },
+    "logistic": {
+      "cv_logloss": 0.6239,
+      "cv_logloss_std": 0.014,
+      "cv_auc": 0.707,
+      "cv_train_logloss": 0.6177,
+      "overfitting_gap": -0.0062
+    },
+    "random_forest": {
+      "cv_logloss": 0.6306,
+      "cv_logloss_std": 0.0111,
+      "cv_auc": 0.7007,
+      "cv_train_logloss": 0.6101,
+      "overfitting_gap": -0.0206
+    }
+  },
+  "mlflow_run_id": null,
+  "model_path": "/Users/akashlakshmanan/Documents/Akash/Coding_Projects/LakersSeasonForecast/models/game_win_model.pkl"
+}
