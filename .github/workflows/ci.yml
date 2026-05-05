@@ -1,0 +1,146 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  # ── Job 1: Lint ─────────────────────────────────────────────────────────────
+  lint:
+    name: Lint (black, flake8, isort)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install linters
+        run: pip install black flake8 isort
+
+      - name: black
+        run: black --check .
+
+      - name: flake8
+        run: flake8 .
+
+      - name: isort
+        run: isort --check-only .
+
+  # ── Job 2: Unit tests ────────────────────────────────────────────────────────
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER:     lakers
+          POSTGRES_PASSWORD: lakers
+          POSTGRES_DB:       lakersdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://lakers:lakers@localhost:5432/lakersdb
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Initialize database schema
+        run: psql $DATABASE_URL -f sql/init.sql
+
+      - name: Run unit tests (no network)
+        run: pytest Testing/ -m "not integration" --cov=etl --cov=models --cov-report=xml -v
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: coverage.xml
+        continue-on-error: true   # don't fail CI if codecov is down
+
+  # ── Job 3: Docker build ──────────────────────────────────────────────────────
+  docker-build:
+    name: Docker Build & Smoke Test
+    runs-on: ubuntu-latest
+    needs: [lint, test]    # only build if lint + tests pass
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build Streamlit app image
+        run: docker build -t nba-predictor:ci .
+
+      - name: Start container
+        run: |
+          docker run -d -p 8501:8501 \
+            -v ${{ github.workspace }}/processed:/app/processed \
+            -v ${{ github.workspace }}/models:/app/models \
+            --name test_app nba-predictor:ci
+
+      - name: Wait for startup
+        run: sleep 30
+
+      - name: Health check
+        run: curl -f http://localhost:8501/_stcore/health
+
+      - name: Smoke test — verify models load and predict
+        run: |
+          docker exec test_app python -c "
+          import os, sys
+          sys.path.insert(0, '.')
+
+          # Season model smoke test
+          season_model_path = 'models/best_wins_model.pkl'
+          if os.path.exists(season_model_path):
+              import joblib, pandas as pd
+              from models.data_prep import FEATURE_COLS
+              model = joblib.load(season_model_path)
+              parquet = 'processed/ml_features.parquet'
+              if os.path.exists(parquet):
+                  df = pd.read_parquet(parquet)
+                  avail = [c for c in FEATURE_COLS if c in df.columns]
+                  X = df[avail].dropna().head(1)
+                  if not X.empty:
+                      pred = model.predict(X)
+                      assert 0 <= pred[0] <= 82, f'Season model out of range: {pred[0]}'
+                      print(f'Season model OK: {pred[0]:.1f} wins')
+
+          # Game model smoke test
+          game_model_path = 'models/game_win_model.pkl'
+          if os.path.exists(game_model_path):
+              import joblib, pandas as pd, numpy as np
+              from etl.transform_games import GAME_FEATURE_COLS
+              model = joblib.load(game_model_path)
+              parquet = 'processed/game_features.parquet'
+              if os.path.exists(parquet):
+                  df = pd.read_parquet(parquet)
+                  avail = [c for c in GAME_FEATURE_COLS if c in df.columns]
+                  X = df[avail].dropna().head(1)
+                  if not X.empty:
+                      probs = model.predict_proba(X)
+                      assert 0 <= probs[0][1] <= 1, f'Game model prob out of range: {probs[0][1]}'
+                      assert abs(probs[0].sum() - 1.0) < 1e-6
+                      print(f'Game model OK: P(win)={probs[0][1]:.4f}')
+
+          print('Smoke test complete')
+          "
+
+      - name: Stop container
+        if: always()
+        run: docker stop test_app || true

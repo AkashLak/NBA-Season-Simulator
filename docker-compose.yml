@@ -1,0 +1,159 @@
+services:
+
+  # ── App database (NBA data warehouse) ──────────────────────────────────────
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER:     lakers
+      POSTGRES_PASSWORD: lakers
+      POSTGRES_DB:       lakersdb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lakers -d lakersdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── MLflow tracking server ──────────────────────────────────────────────────
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.10.0
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri postgresql://lakers:lakers@postgres:5432/lakersdb
+      --default-artifact-root /mlflow/artifacts
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_artifacts:/mlflow/artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+
+  # ── Airflow metadata database (kept separate from NBA data) ────────────────
+  airflow-db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER:     airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB:       airflow
+    volumes:
+      - airflow_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Airflow one-shot init (runs db migrate + creates admin user, then exits) ─
+  airflow-init:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      DATABASE_URL: postgresql://lakers:lakers@postgres:5432/lakersdb
+    volumes:
+      - ./dags:/opt/airflow/dags:ro
+      - ./etl:/opt/airflow/etl:ro
+      - ./models:/opt/airflow/models:ro
+      - ./processed:/opt/airflow/processed
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    command: >
+      bash -c "
+        airflow db migrate &&
+        airflow users create
+          --username admin
+          --password ${AIRFLOW_ADMIN_PASSWORD:-admin}
+          --firstname Admin
+          --lastname Admin
+          --role Admin
+          --email admin@nba.local
+      "
+    restart: on-failure
+    env_file: .env
+
+  # ── Airflow scheduler ────────────────────────────────────────────────────────
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      DATABASE_URL: postgresql://lakers:lakers@postgres:5432/lakersdb
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    volumes:
+      - ./dags:/opt/airflow/dags:ro
+      - ./etl:/opt/airflow/etl:ro
+      - ./models:/opt/airflow/models
+      - ./processed:/opt/airflow/processed
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    command: airflow scheduler
+    env_file: .env
+    restart: unless-stopped
+
+  # ── Airflow webserver ────────────────────────────────────────────────────────
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      DATABASE_URL: postgresql://lakers:lakers@postgres:5432/lakersdb
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    volumes:
+      - ./dags:/opt/airflow/dags:ro
+      - ./etl:/opt/airflow/etl:ro
+      - ./models:/opt/airflow/models:ro
+      - ./processed:/opt/airflow/processed:ro
+    ports:
+      - "8080:8080"
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    command: airflow webserver
+    env_file: .env
+    restart: unless-stopped
+
+  # ── Streamlit app ────────────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL:        postgresql://lakers:lakers@postgres:5432/lakersdb
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    volumes:
+      - ./processed:/app/processed:ro
+      - ./models:/app/models:ro
+    ports:
+      - "8501:8501"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  airflow_db_data:
+  mlflow_artifacts:
