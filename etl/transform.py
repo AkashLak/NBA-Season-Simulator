@@ -247,6 +247,15 @@ def build_feature_row(
     """
     mode = detect_prediction_mode(games_played)
 
+    # Feature contract: preseason mode must never receive current-season stats.
+    # Violating this would silently blend future data into the prediction.
+    if mode == "preseason" and current_partial_stats is not None:
+        raise AssertionError(
+            f"build_feature_row called in preseason mode (games_played={games_played}) "
+            "but current_partial_stats was provided. Preseason mode uses prior season "
+            "stats only — pass current_partial_stats=None or games_played >= 20."
+        )
+
     prior_rows = ml_features_df[
         (ml_features_df["team_id"] == team_id) &
         (ml_features_df["season_year"] == season_year - 1)
@@ -280,6 +289,9 @@ def build_feature_row(
         "roster_turnover_pct": prior.get("roster_turnover_pct"),
         "avg_games_played": prior.get("avg_games_played"),
         "star_age_flag": prior.get("star_age_flag"),
+        # new roster-quality features (always from prior season)
+        "prev_std_dev_pie": prior.get("std_dev_pie"),
+        "prev_top_3_minutes_share": prior.get("top_3_minutes_share"),
     }
 
     # blendable current-season features

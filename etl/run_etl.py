@@ -55,4 +55,12 @@ def run_etl(seasons: list = None):
 
 
 if __name__ == "__main__":
-    run_etl()
+    import argparse
+    parser = argparse.ArgumentParser(description="NBA season-level ETL pipeline")
+    parser.add_argument(
+        "--fast",
+        action="store_true",
+        help="Ingest only the last 5 seasons (~5 min). Use for dev/demo setup.",
+    )
+    args = parser.parse_args()
+    run_etl(seasons=SEASONS[-5:] if args.fast else None)
