@@ -287,6 +287,7 @@ def run_training() -> dict:
     )
     print(f"\nWinner: {winner_name.upper()}")
     print(f"Reason: {reason}")
+    winner_metrics = all_results[winner_name]
 
     # ── Step 3: Baseline comparison ───────────────────────────────────────────
     print("\nComputing naive baseline (predict last season's wins)...")
@@ -305,7 +306,6 @@ def run_training() -> dict:
         print(f"WARNING: {baseline_warning}")
 
     # ── Step 4: Quality gate ──────────────────────────────────────────────────
-    winner_metrics = all_results[winner_name]
     gate_passed = check_quality_gate(winner_metrics)
     if not gate_passed:
         raise RuntimeError(
