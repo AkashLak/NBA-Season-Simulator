@@ -4,8 +4,8 @@ from nba_api.stats.endpoints import leaguedashteamstats, leaguedashplayerstats
 
 LAKERS_TEAM_ID = 1610612747
 
-# 25 seasons: 1999-00 through 2024-25
-SEASONS = [f"{y}-{str(y + 1)[2:]}" for y in range(1999, 2025)]
+# 1996-97 through 2024-25 — practical floor for reliable nba_api advanced stats
+SEASONS = [f"{y}-{str(y + 1)[2:]}" for y in range(1996, 2025)]
 
 _RATE_LIMIT_SLEEP = 0.6
 

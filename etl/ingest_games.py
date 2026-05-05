@@ -5,7 +5,7 @@ import pandas as pd
 from nba_api.stats.endpoints import leaguegamelog
 
 # Reuse constants from season-level ingest
-SEASONS = [f"{y}-{str(y + 1)[2:]}" for y in range(1999, 2025)]
+SEASONS = [f"{y}-{str(y + 1)[2:]}" for y in range(1996, 2025)]
 _RATE_LIMIT_SLEEP = 0.6
 
 
