@@ -109,6 +109,19 @@ def aggregate_player_features(player_df: pd.DataFrame) -> pd.DataFrame:
             ((group["age"] >= 32) & (group["minutes_pg"] >= 30)).any()
         ) if "age" in group.columns else False
 
+        # Roster quality variance — high std_dev_pie means star-dependent roster
+        std_dev_pie = (
+            float(qualified["pie"].std())
+            if "pie" in qualified.columns and len(qualified) >= 2
+            else 0.0
+        )
+
+        # Minutes concentration — fraction of team minutes from top-3 players
+        total_team_min = group["minutes_pg"].sum()
+        top_3_minutes_share = float(
+            group.nlargest(3, "minutes_pg")["minutes_pg"].sum() / total_team_min
+        ) if total_team_min > 0 else np.nan
+
         rows.append({
             "team_id": team_id,
             "season_year": season_year,
@@ -116,6 +129,8 @@ def aggregate_player_features(player_df: pd.DataFrame) -> pd.DataFrame:
             "team_avg_age": team_avg_age,
             "avg_games_played": avg_games_played,
             "star_age_flag": star_age_flag,
+            "std_dev_pie": std_dev_pie,
+            "top_3_minutes_share": top_3_minutes_share,
         })
 
     return pd.DataFrame(rows)
@@ -171,6 +186,7 @@ def add_lag_features(df: pd.DataFrame) -> pd.DataFrame:
         "pts_pg", "ts_pct", "ast_to_ratio", "pace",
         "oreb_pct", "dreb_pct", "tm_tov_pct",
         "team_avg_pie", "playoff_team",
+        "std_dev_pie", "top_3_minutes_share",
     ]
     for col in lag_cols:
         if col in df.columns:

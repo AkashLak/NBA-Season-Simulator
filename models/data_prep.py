@@ -29,6 +29,8 @@ FEATURE_COLS = [
     "roster_turnover_pct",
     "avg_games_played",
     "star_age_flag",
+    "prev_std_dev_pie",
+    "prev_top_3_minutes_share",
 ]
 
 TARGET_COL = "wins_normalized"      # model trains on 82-game pace wins
