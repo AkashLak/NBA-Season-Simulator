@@ -23,19 +23,39 @@ def save_to_postgres(df: pd.DataFrame, table_name: str, engine, if_exists: str =
     print(f"Saved {len(df)} rows to postgres table '{table_name}'")
 
 
+def _get_table_columns(table_name: str, engine) -> set:
+    """Return the set of column names that exist in the target PostgreSQL table."""
+    with engine.connect() as conn:
+        result = conn.execute(text(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = 'public' AND table_name = :t"
+        ), {"t": table_name})
+        return {row[0] for row in result}
+
+
 def upsert_to_postgres(df: pd.DataFrame, table_name: str, engine, conflict_cols: list):
     """
     Insert DataFrame rows into a PostgreSQL table using ON CONFLICT DO NOTHING.
+    Only columns that exist in the target table schema are inserted — extra
+    columns coming from raw API responses are silently dropped.
     Re-running the ETL pipeline never produces duplicate rows.
     """
     if df.empty:
         print(f"Skipping upsert to '{table_name}': empty DataFrame")
         return
 
+    # Drop columns not in the target schema to avoid UndefinedColumn errors
+    table_cols  = _get_table_columns(table_name, engine)
+    valid_cols  = [c for c in df.columns if c in table_cols]
+    dropped     = len(df.columns) - len(valid_cols)
+    if dropped:
+        print(f"  Dropping {dropped} columns not in '{table_name}' schema")
+    df = df[valid_cols]
+
     temp_table = f"_tmp_{table_name}"
     df.to_sql(temp_table, engine, if_exists="replace", index=False)
 
-    cols = ", ".join(f'"{c}"' for c in df.columns)
+    cols     = ", ".join(f'"{c}"' for c in valid_cols)
     conflict = ", ".join(f'"{c}"' for c in conflict_cols)
 
     with engine.connect() as conn:
