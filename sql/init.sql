@@ -156,8 +156,7 @@ CREATE TABLE IF NOT EXISTS nba_predictions (
     playoff_prob    FLOAT,
     prediction_mode VARCHAR(15),
     model_run_id    VARCHAR(100),
-    model_version   VARCHAR(50),
-    UNIQUE (team_id, season_year, model_version, (DATE(predicted_at)))
+    model_version   VARCHAR(50)
 );
 
 -- ── Indexes ───────────────────────────────────────────────────────────────────
@@ -165,6 +164,9 @@ CREATE INDEX IF NOT EXISTS idx_team_stats_team_season   ON nba_team_season_stats
 CREATE INDEX IF NOT EXISTS idx_player_stats_team_season ON nba_player_season_stats (team_id, season_year);
 CREATE INDEX IF NOT EXISTS idx_ml_features_team_season  ON ml_training_features (team_id, season_year);
 CREATE INDEX IF NOT EXISTS idx_predictions_team_season  ON nba_predictions (team_id, season_year);
+-- Function-based unique index: one row per team per day per model version
+CREATE UNIQUE INDEX IF NOT EXISTS idx_predictions_unique
+    ON nba_predictions (team_id, season_year, model_version, DATE(predicted_at));
 CREATE INDEX IF NOT EXISTS idx_game_features_team_date  ON nba_game_features (team_id, game_date);
 CREATE INDEX IF NOT EXISTS idx_game_features_season     ON nba_game_features (season_year);
 CREATE INDEX IF NOT EXISTS idx_game_features_game       ON nba_game_features (game_id);
