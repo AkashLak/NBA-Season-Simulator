@@ -25,6 +25,41 @@ LAKERS_ID    = 1610612747
 PROCESSED    = "processed"
 MODELS_DIR   = "models"
 
+# Canonical current team names keyed by nba_api team_id.
+# Covers all relocations/rebrands: Seattle→OKC, NJ→Brooklyn, Vancouver→Memphis, etc.
+CURRENT_TEAMS: dict[int, str] = {
+    1610612737: "Atlanta Hawks",
+    1610612738: "Boston Celtics",
+    1610612751: "Brooklyn Nets",
+    1610612766: "Charlotte Hornets",
+    1610612741: "Chicago Bulls",
+    1610612739: "Cleveland Cavaliers",
+    1610612742: "Dallas Mavericks",
+    1610612743: "Denver Nuggets",
+    1610612765: "Detroit Pistons",
+    1610612744: "Golden State Warriors",
+    1610612745: "Houston Rockets",
+    1610612754: "Indiana Pacers",
+    1610612746: "LA Clippers",
+    1610612747: "Los Angeles Lakers",
+    1610612763: "Memphis Grizzlies",
+    1610612748: "Miami Heat",
+    1610612749: "Milwaukee Bucks",
+    1610612750: "Minnesota Timberwolves",
+    1610612740: "New Orleans Pelicans",
+    1610612752: "New York Knicks",
+    1610612760: "Oklahoma City Thunder",
+    1610612753: "Orlando Magic",
+    1610612755: "Philadelphia 76ers",
+    1610612756: "Phoenix Suns",
+    1610612757: "Portland Trail Blazers",
+    1610612758: "Sacramento Kings",
+    1610612759: "San Antonio Spurs",
+    1610612761: "Toronto Raptors",
+    1610612762: "Utah Jazz",
+    1610612764: "Washington Wizards",
+}
+
 
 # ── Engine ─────────────────────────────────────────────────────────────────────
 
@@ -94,17 +129,9 @@ def load_player_stats() -> pd.DataFrame:
     return pd.DataFrame()
 
 
-@st.cache_data(ttl=3600)
 def load_team_names() -> dict:
-    """Return {team_id: team_name} from nba_team_season_stats."""
-    ts = load_team_stats()
-    if ts.empty or "team_id" not in ts.columns or "team_name" not in ts.columns:
-        return {LAKERS_ID: "Los Angeles Lakers"}
-    return (
-        ts.drop_duplicates("team_id")
-        .set_index("team_id")["team_name"]
-        .to_dict()
-    )
+    """Return {team_id: current_team_name} for all 30 active franchises."""
+    return CURRENT_TEAMS
 
 
 @st.cache_data(ttl=3600)
@@ -190,20 +217,18 @@ def load_learning_curve() -> dict:
 # ── UI helpers ─────────────────────────────────────────────────────────────────
 
 def team_selector(label: str = "Team", key: str = "team_sel") -> int:
-    """Dropdown of all teams sorted alphabetically, Lakers selected by default."""
-    names = load_team_names()
-    sorted_teams = sorted(names.items(), key=lambda x: x[1])
+    """Dropdown of all 30 current franchises sorted alphabetically, Lakers default."""
+    sorted_teams = sorted(CURRENT_TEAMS.items(), key=lambda x: x[1])
     default_idx = next(
         (i for i, (tid, _) in enumerate(sorted_teams) if tid == LAKERS_ID), 0
     )
-    selected = st.selectbox(
+    return st.selectbox(
         label,
         options=[tid for tid, _ in sorted_teams],
-        format_func=lambda tid: names.get(tid, str(tid)),
+        format_func=lambda tid: CURRENT_TEAMS.get(tid, str(tid)),
         index=default_idx,
         key=key,
     )
-    return selected
 
 
 def season_selector(label: str = "Season", key: str = "season_sel",
