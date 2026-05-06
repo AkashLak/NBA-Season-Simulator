@@ -1,6 +1,6 @@
 {
   "winner": "logistic",
-  "trained_at": "2026-05-05T15:57:56.000811",
+  "trained_at": "2026-05-05T21:36:54.470795",
   "feature_cols": [
     "team_rolling_win_pct_5",
     "team_rolling_win_pct_10",

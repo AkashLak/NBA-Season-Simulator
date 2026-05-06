@@ -1,7 +1,7 @@
 {
-  "winner": "ridge",
-  "trained_at": "2026-05-05T15:56:48.500955",
-  "n_training_samples": 684,
+  "winner": "xgboost",
+  "trained_at": "2026-05-05T21:36:44.128336",
+  "n_training_samples": 742,
   "n_test_samples": 88,
   "feature_cols": [
     "prev_wins_normalized",
@@ -27,45 +27,45 @@
   ],
   "results": {
     "xgboost": {
-      "r2": 0.7658,
-      "rmse": 6.6669,
-      "mae": 5.4568,
+      "r2": 0.8826,
+      "rmse": 4.7194,
+      "mae": 2.6299,
       "n_samples": 88,
-      "cv_r2_mean": 0.7179,
-      "cv_r2_std": 0.0401,
-      "cv_train_r2_mean": 0.9989,
-      "overfitting_gap": 0.2809
+      "cv_r2_mean": 0.7309,
+      "cv_r2_std": 0.0389,
+      "cv_train_r2_mean": 0.9986,
+      "overfitting_gap": 0.2677
     },
     "ridge": {
-      "r2": 0.7752,
-      "rmse": 6.5314,
-      "mae": 5.3209,
+      "r2": 0.7889,
+      "rmse": 6.329,
+      "mae": 5.1651,
       "n_samples": 88,
-      "cv_r2_mean": 0.7466,
-      "cv_r2_std": 0.0346,
-      "cv_train_r2_mean": 0.8188,
-      "overfitting_gap": 0.0722
+      "cv_r2_mean": 0.748,
+      "cv_r2_std": 0.0388,
+      "cv_train_r2_mean": 0.8327,
+      "overfitting_gap": 0.0847
     },
     "random_forest": {
-      "r2": 0.7838,
-      "rmse": 6.4064,
-      "mae": 5.2059,
+      "r2": 0.8348,
+      "rmse": 5.5987,
+      "mae": 4.2685,
       "n_samples": 88,
-      "cv_r2_mean": 0.7268,
-      "cv_r2_std": 0.032,
-      "cv_train_r2_mean": 0.9235,
-      "overfitting_gap": 0.1967
+      "cv_r2_mean": 0.7249,
+      "cv_r2_std": 0.0505,
+      "cv_train_r2_mean": 0.9292,
+      "overfitting_gap": 0.2043
     }
   },
-  "selection_reason": "ridge had lowest test RMSE (6.531 wins). xgboost: RMSE=6.667, random_forest: RMSE=6.406",
+  "selection_reason": "xgboost had lowest test RMSE (4.719 wins). ridge: RMSE=6.329, random_forest: RMSE=5.599",
   "baseline": {
     "baseline_rmse": 12.6719,
     "baseline_r2": 0.1539,
     "n_samples": 88
   },
   "baseline_warning": null,
-  "improvement_over_baseline": 6.1405,
-  "playoff_classifier_auc": 0.898,
+  "improvement_over_baseline": 7.9525,
+  "playoff_classifier_auc": 0.9596,
   "gate_passed": true,
   "mlflow_run_id": null,
   "model_path": "/Users/akashlakshmanan/Documents/Akash/Coding_Projects/LakersSeasonForecast/models/best_wins_model.pkl"
