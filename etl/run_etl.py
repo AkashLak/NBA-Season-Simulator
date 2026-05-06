@@ -1,4 +1,5 @@
 import os
+import pandas as pd
 from dotenv import load_dotenv
 
 from etl.ingest import ingest_data, SEASONS
@@ -22,8 +23,13 @@ def run_etl(seasons: list = None):
     # 1. Ingest live data from nba_api
     raw_data = ingest_data(seasons or SEASONS)
 
-    # 2. Transform: normalize, aggregate players, compute lag features
-    transformed = transform_data(raw_data)
+    # 2. Transform: normalize, aggregate players, compute lag features + SOS
+    game_path = f"{PARQUET_DIR}/game_features.parquet"
+    game_df = pd.read_parquet(game_path) if os.path.exists(game_path) else None
+    if game_df is None:
+        print("Note: game_features.parquet not found — sos feature will be omitted. "
+              "Run python -m etl.ingest_games first, then re-run ETL.")
+    transformed = transform_data(raw_data, game_df)
 
     # 3. Load to PostgreSQL (primary storage)
     engine = get_engine()

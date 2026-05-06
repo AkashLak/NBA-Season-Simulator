@@ -35,19 +35,18 @@ def _get_table_columns(table_name: str, engine) -> set:
 
 def upsert_to_postgres(df: pd.DataFrame, table_name: str, engine, conflict_cols: list):
     """
-    Insert DataFrame rows into a PostgreSQL table using ON CONFLICT DO NOTHING.
-    Only columns that exist in the target table schema are inserted — extra
-    columns coming from raw API responses are silently dropped.
-    Re-running the ETL pipeline never produces duplicate rows.
+    Insert-or-update DataFrame rows into a PostgreSQL table.
+    On conflict, all non-key columns are updated so re-running the ETL
+    correctly refreshes existing rows (e.g. when new feature columns are added).
+    Columns not in the target table schema are silently dropped.
     """
     if df.empty:
         print(f"Skipping upsert to '{table_name}': empty DataFrame")
         return
 
-    # Drop columns not in the target schema to avoid UndefinedColumn errors
-    table_cols  = _get_table_columns(table_name, engine)
-    valid_cols  = [c for c in df.columns if c in table_cols]
-    dropped     = len(df.columns) - len(valid_cols)
+    table_cols = _get_table_columns(table_name, engine)
+    valid_cols = [c for c in df.columns if c in table_cols]
+    dropped = len(df.columns) - len(valid_cols)
     if dropped:
         print(f"  Dropping {dropped} columns not in '{table_name}' schema")
     df = df[valid_cols]
@@ -58,11 +57,18 @@ def upsert_to_postgres(df: pd.DataFrame, table_name: str, engine, conflict_cols:
     cols     = ", ".join(f'"{c}"' for c in valid_cols)
     conflict = ", ".join(f'"{c}"' for c in conflict_cols)
 
+    update_cols = [c for c in valid_cols if c not in conflict_cols]
+    if update_cols:
+        update_set = ", ".join(f'"{c}" = EXCLUDED."{c}"' for c in update_cols)
+        on_conflict_clause = f"ON CONFLICT ({conflict}) DO UPDATE SET {update_set}"
+    else:
+        on_conflict_clause = f"ON CONFLICT ({conflict}) DO NOTHING"
+
     with engine.connect() as conn:
         conn.execute(text(f"""
             INSERT INTO "{table_name}" ({cols})
             SELECT {cols} FROM "{temp_table}"
-            ON CONFLICT ({conflict}) DO NOTHING;
+            {on_conflict_clause};
         """))
         conn.execute(text(f'DROP TABLE IF EXISTS "{temp_table}";'))
         conn.commit()

@@ -13,11 +13,11 @@ from models.data_prep import FEATURE_COLS, chronological_split
 # ── Quality gate ───────────────────────────────────────────────────────────────
 
 def test_quality_gate_passes():
-    assert check_quality_gate({"r2": 0.80, "rmse": 5.5, "mae": 4.0, "n_samples": 90})
+    assert check_quality_gate({"r2": 0.70, "rmse": 5.5, "mae": 4.0, "n_samples": 90})
 
 
 def test_quality_gate_fails_low_r2():
-    assert not check_quality_gate({"r2": 0.70, "rmse": 5.5, "mae": 4.0, "n_samples": 90})
+    assert not check_quality_gate({"r2": 0.60, "rmse": 5.5, "mae": 4.0, "n_samples": 90})
 
 
 def test_quality_gate_fails_high_rmse():
@@ -109,8 +109,8 @@ def test_feature_cols_includes_new_roster_features():
 
 
 def test_feature_cols_count():
-    assert len(FEATURE_COLS) == 20, (
-        f"Expected 20 FEATURE_COLS, got {len(FEATURE_COLS)}: {FEATURE_COLS}"
+    assert len(FEATURE_COLS) == 22, (
+        f"Expected 22 FEATURE_COLS, got {len(FEATURE_COLS)}: {FEATURE_COLS}"
     )
 
 

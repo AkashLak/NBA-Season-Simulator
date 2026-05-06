@@ -140,13 +140,14 @@ def _select_winner(candidates: dict, X_train, y_train, X_test, y_test) -> tuple:
 
     # Sort by RMSE ascending; apply tie-break within threshold
     sorted_by_rmse = sorted(results.items(), key=lambda x: x[1]["rmse"])
-    best_name, best_metrics = sorted_by_rmse[0]
+    orig_best_name, orig_best_metrics = sorted_by_rmse[0]
+    best_name, best_metrics = orig_best_name, orig_best_metrics
 
     for name, metrics in sorted_by_rmse[1:]:
-        if metrics["rmse"] - best_metrics["rmse"] <= TIEBREAK_THRESHOLD:
-            # Within tie-break window — prefer simpler model
+        # Always compare against the original lowest-RMSE model, not the chain-swapped one
+        if metrics["rmse"] - orig_best_metrics["rmse"] <= TIEBREAK_THRESHOLD:
             if TIEBREAK_ORDER.index(name) < TIEBREAK_ORDER.index(best_name):
-                print(f"  Tie-break: {name} preferred over {best_name} (RMSE delta={metrics['rmse'] - best_metrics['rmse']:.3f} ≤ {TIEBREAK_THRESHOLD})")
+                print(f"  Tie-break: {name} preferred over {best_name} (RMSE delta={metrics['rmse'] - orig_best_metrics['rmse']:.3f} ≤ {TIEBREAK_THRESHOLD})")
                 best_name, best_metrics = name, metrics
 
     reason = (

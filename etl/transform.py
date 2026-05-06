@@ -170,6 +170,29 @@ def compute_roster_turnover(player_df: pd.DataFrame) -> pd.DataFrame:
 
 # ── Lag features ──────────────────────────────────────────────────────────────
 
+def compute_strength_of_schedule(game_df: pd.DataFrame, team_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    For each team-season, compute mean net_rating of all opponents faced.
+    Captures schedule difficulty — a team in a weak division inflates its record.
+    Returns DataFrame with columns: team_id, season_year, sos.
+    """
+    ratings = (
+        team_df[["team_id", "season_year", "net_rating"]]
+        .rename(columns={"team_id": "opponent_id", "net_rating": "opp_net_rating"})
+    )
+    games = (
+        game_df[["team_id", "opponent_id", "season_year"]]
+        .drop_duplicates()
+        .merge(ratings, on=["opponent_id", "season_year"], how="left")
+    )
+    return (
+        games.groupby(["team_id", "season_year"])["opp_net_rating"]
+        .mean()
+        .reset_index()
+        .rename(columns={"opp_net_rating": "sos"})
+    )
+
+
 def add_lag_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Add prior-season features for each team.
@@ -180,6 +203,11 @@ def add_lag_features(df: pd.DataFrame) -> pd.DataFrame:
     dropped during model training but retained for inference.
     """
     df = df.sort_values(["team_id", "season_year"]).copy()
+
+    # Net rating trajectory: positive = improving, negative = declining
+    if "net_rating" in df.columns:
+        df["net_rating_delta"] = df.groupby("team_id")["net_rating"].diff()
+
     lag_cols = [
         "wins", "wins_normalized",
         "off_rating", "def_rating", "net_rating",
@@ -187,6 +215,8 @@ def add_lag_features(df: pd.DataFrame) -> pd.DataFrame:
         "oreb_pct", "dreb_pct", "tm_tov_pct",
         "team_avg_pie", "playoff_team",
         "std_dev_pie", "top_3_minutes_share",
+        "net_rating_delta",
+        "sos",
     ]
     for col in lag_cols:
         if col in df.columns:
@@ -200,10 +230,15 @@ def build_ml_features(
     team_df: pd.DataFrame,
     player_agg_df: pd.DataFrame,
     turnover_df: pd.DataFrame,
+    game_df: pd.DataFrame = None,
 ) -> pd.DataFrame:
-    """Join team stats + player aggregates + roster turnover, then add lag features."""
+    """Join team stats + player aggregates + roster turnover + SOS, then add lag features."""
     df = team_df.merge(player_agg_df, on=["team_id", "season_year"], how="left")
     df = df.merge(turnover_df, on=["team_id", "season_year"], how="left")
+
+    if game_df is not None and not game_df.empty:
+        sos_df = compute_strength_of_schedule(game_df, team_df)
+        df = df.merge(sos_df, on=["team_id", "season_year"], how="left")
 
     # Normalize wins to 82-game pace to handle shortened seasons.
     # 2019-20: 65-72 games (COVID bubble). 2011-12: 66 games (lockout).
@@ -292,6 +327,9 @@ def build_feature_row(
         # new roster-quality features (always from prior season)
         "prev_std_dev_pie": prior.get("std_dev_pie"),
         "prev_top_3_minutes_share": prior.get("top_3_minutes_share"),
+        # trajectory and schedule difficulty
+        "prev_net_rating_delta": prior.get("net_rating_delta"),
+        "prev_sos": prior.get("sos"),
     }
 
     # blendable current-season features
@@ -322,10 +360,13 @@ def build_feature_row(
 
 # ── Top-level orchestrator ────────────────────────────────────────────────────
 
-def transform_data(raw_data: dict) -> dict:
+def transform_data(raw_data: dict, game_df: pd.DataFrame = None) -> dict:
     """
     Full transform pipeline: normalize → aggregate players → compute turnover
     → join → add lag features → build ML feature table.
+
+    game_df: optional game-level DataFrame used to compute strength of schedule (sos).
+             If None, sos features are omitted.
 
     Returns dict with keys: "team_stats", "player_stats", "ml_features"
     """
@@ -334,7 +375,7 @@ def transform_data(raw_data: dict) -> dict:
 
     player_agg_df = aggregate_player_features(player_df)
     turnover_df = compute_roster_turnover(player_df)
-    ml_features_df = build_ml_features(team_df, player_agg_df, turnover_df)
+    ml_features_df = build_ml_features(team_df, player_agg_df, turnover_df, game_df)
 
     print(
         f"Transform complete: {len(team_df)} team rows, "

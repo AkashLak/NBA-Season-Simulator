@@ -31,6 +31,10 @@ FEATURE_COLS = [
     "star_age_flag",
     "prev_std_dev_pie",
     "prev_top_3_minutes_share",
+    # trajectory: how much net_rating improved/declined last season
+    "prev_net_rating_delta",
+    # strength of schedule: mean opponent net_rating faced last season
+    "prev_sos",
 ]
 
 TARGET_COL = "wins_normalized"      # model trains on 82-game pace wins

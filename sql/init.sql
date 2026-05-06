@@ -97,6 +97,10 @@ CREATE TABLE IF NOT EXISTS ml_training_features (
     top_3_minutes_share  FLOAT,  -- fraction of team minutes from top-3 players
     prev_std_dev_pie     FLOAT,  -- lag version of std_dev_pie
     prev_top_3_minutes_share FLOAT, -- lag version of top_3_minutes_share
+    net_rating_delta     FLOAT,  -- net_rating change vs prior season
+    prev_net_rating_delta FLOAT, -- lagged trajectory feature (trend entering this season)
+    sos                  FLOAT,  -- mean opponent net_rating faced this season
+    prev_sos             FLOAT,  -- lagged SOS (schedule difficulty last season)
     -- metadata
     is_lakers            BOOLEAN,
     prediction_mode      VARCHAR(15),  -- "preseason" or "mid-season"
