@@ -47,19 +47,19 @@ LEAGUE_AVG_DEF_RATING = 113.0
 
 def _load_schedule_from_db(season_year: int, engine) -> pd.DataFrame:
     """One row per game (home team perspective) from nba_game_features."""
-    return pd.read_sql(
-        """
-        SELECT DISTINCT game_id, game_date,
-               team_id   AS home_id,
-               opponent_id AS away_id
-        FROM   nba_game_features
-        WHERE  season_year = %(sy)s
-          AND  home_flag   = 1
-        ORDER  BY game_date
-        """,
-        engine,
-        params={"sy": season_year},
-    )
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        return pd.read_sql(
+            text(
+                "SELECT DISTINCT game_id, game_date, "
+                "team_id AS home_id, opponent_id AS away_id "
+                "FROM nba_game_features "
+                "WHERE season_year = :sy AND home_flag = 1 "
+                "ORDER BY game_date"
+            ),
+            conn,
+            params={"sy": season_year},
+        )
 
 
 def _load_schedule_from_parquet(season_year: int) -> pd.DataFrame:
@@ -87,12 +87,14 @@ def _get_schedule(season_year: int, engine=None, _depth: int = 0) -> pd.DataFram
             "of the 3 prior seasons. Run the ETL pipeline first."
         )
 
+    df = pd.DataFrame()
     if engine is not None:
         try:
             df = _load_schedule_from_db(season_year, engine)
         except Exception:
-            df = pd.DataFrame()
-    else:
+            pass
+
+    if df.empty:
         df = _load_schedule_from_parquet(season_year)
 
     if df.empty:
