@@ -81,12 +81,13 @@ if ml_row is not None:
 # ── Roster table ──────────────────────────────────────────────────────────────
 st.divider()
 st.subheader("Roster")
-st.caption("🔴 Fewer than 50 games played last season (injury risk proxy)")
+st.caption("🔴 Fewer than 50 games played last season (injury risk proxy). Excludes players with fewer than 10 games (10-day / two-way contracts).")
 
 if not player_df.empty:
     roster = player_df[
         (player_df["team_id"] == team_id) &
-        (player_df["season_year"] == selected_season)
+        (player_df["season_year"] == selected_season) &
+        (player_df["games_played"] >= 10)
     ].copy()
 
     if roster.empty:
