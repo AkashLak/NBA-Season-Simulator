@@ -14,8 +14,13 @@ def _sleep():
 
 
 def season_to_year(season: str) -> int:
-    """Convert nba_api season string to end year. '2023-24' → 2024"""
-    return int("20" + season.split("-")[1])
+    """
+    Convert nba_api season string to end year.
+    '2023-24' → 2024,  '1998-99' → 1999,  '1999-00' → 2000
+    """
+    suffix = season.split("-")[1]
+    n = int(suffix)
+    return 1900 + n if n >= 50 else 2000 + n
 
 
 def fetch_game_logs(season: str) -> pd.DataFrame:
