@@ -215,9 +215,9 @@ def _init_team_state(team_id: int, prior: dict) -> dict:
         "games_played":   0,
         "expected_wins":  0.0,
         "game_probs":     [],
-        "prev_net_rating": prior.get("net_rating", LEAGUE_AVG_NET_RATING),
-        "prev_off_rating": prior.get("off_rating", LEAGUE_AVG_OFF_RATING),
-        "prev_def_rating": prior.get("def_rating", LEAGUE_AVG_DEF_RATING),
+        "prev_net_rating": prior.get("prev_net_rating", prior.get("net_rating", LEAGUE_AVG_NET_RATING)),
+        "prev_off_rating": prior.get("prev_off_rating", prior.get("off_rating", LEAGUE_AVG_OFF_RATING)),
+        "prev_def_rating": prior.get("prev_def_rating", prior.get("def_rating", LEAGUE_AVG_DEF_RATING)),
     }
 
 
