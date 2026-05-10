@@ -140,11 +140,10 @@ try:
         f"Baseline win probability: {base_prob:.1%} (league average) → "
         f"Predicted win probability: **{pred_prob:.1%}** for this game."
     )
-    st.warning(
-        "⚠️ `team_prev_off_rating`, `team_prev_def_rating`, and `team_prev_net_rating` "
-        "are correlated (net = off − def), causing large opposite-signed bars that "
-        "partially cancel. Look at `team_prev_net_rating` as the cleaner single signal.",
-        icon=None,
+    st.caption(
+        "Note: `off_rating`, `def_rating`, and `net_rating` are correlated features "
+        "(net = off − def), so their individual bars can appear large and opposite-signed "
+        "while mostly canceling out. `team_prev_net_rating` is the cleaner single signal to read."
     )
 
 except Exception as e:
