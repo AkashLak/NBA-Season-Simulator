@@ -1,0 +1,17 @@
+# Airflow DAG dependencies — intentionally excludes:
+#   sqlalchemy  (Airflow manages its own version; upgrading it breaks Airflow internals)
+#   mlflow      (optional tracking; DAGs skip it gracefully when unavailable)
+#   streamlit / altair / plotly (UI packages not needed in DAG workers)
+
+nba_api>=1.4.0
+requests>=2.31.0
+pandas>=2.0.0
+numpy>=1.26.0
+pyarrow>=14.0.0
+psycopg2-binary>=2.9.0
+xgboost>=2.0.0
+scikit-learn>=1.3.0
+shap>=0.44.0
+joblib>=1.3.0
+scipy>=1.11.0
+python-dotenv>=1.0.0
