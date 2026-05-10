@@ -206,7 +206,7 @@ if feats:
                 col_w.metric("Expected Wins", f"{sim_wins:.1f}")
                 if delta is not None:
                     col_d.metric("Change vs Original Roster", f"{delta:+.1f} wins",
-                                 delta=delta, delta_color="normal")
+                                 delta=round(delta, 1), delta_color="normal")
             except Exception as e:
                 st.warning(f"Simulation error: {e}")
 
