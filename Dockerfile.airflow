@@ -1,4 +1,4 @@
-FROM apache/airflow:2.8.0-python3.11
+FROM apache/airflow:2.9.3-python3.11
 
 # Install NBA project dependencies so DAG workers can import etl.* and models.*
 # This runs as the airflow user — no sudo needed for pip.
