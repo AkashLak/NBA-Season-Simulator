@@ -216,10 +216,18 @@ if feats:
             import plotly.express as px
             shap_df = pd.read_parquet(shap_path).head(10)
             if "feature" in shap_df.columns and "mean_abs_shap" in shap_df.columns:
+                st.divider()
+                st.subheader("Game Model — Global Feature Importances")
+                st.caption(
+                    "Average absolute SHAP value across all ~68K historical games. "
+                    "Shows which features the game model relies on most in general — "
+                    "this does not change per team or roster swap. "
+                    "Higher = that feature shifts the win probability prediction more on average."
+                )
                 fig = px.bar(
                     shap_df.sort_values("mean_abs_shap"),
                     x="mean_abs_shap", y="feature", orientation="h",
-                    title="Top Feature Contributions (Game Model SHAP)",
+                    labels={"mean_abs_shap": "Mean |SHAP| (avg win prob shift)", "feature": "Feature"},
                     color="mean_abs_shap", color_continuous_scale="Blues",
                 )
                 fig.update_layout(coloraxis_showscale=False, height=350)
