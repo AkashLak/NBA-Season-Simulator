@@ -122,16 +122,29 @@ try:
         increasing={"marker": {"color": "#2ecc71"}},
         totals={"marker": {"color": "#3498db"}},
     ))
+    import math
+    def sigmoid(x):
+        return 1 / (1 + math.exp(-x))
+
+    base_prob = sigmoid(base)
+    pred_prob = sigmoid(pred)
+
     fig.update_layout(
         title=f"First Home Game Breakdown — Season {predict_season}",
-        xaxis_title="Win Probability Contribution",
+        xaxis_title="Log-Odds Contribution (positive = helps win probability)",
         height=500,
     )
     st.plotly_chart(fig, use_container_width=True)
     st.caption(
-        f"Base value: {base:.3f} | "
-        f"Final prediction: {pred:.3f} | "
-        f"SHAP sum ≈ prediction: {abs(base + sum(values) - pred) < 0.05}"
+        f"Values are in **log-odds space**, not probability. "
+        f"Baseline win probability: {base_prob:.1%} (league average) → "
+        f"Predicted win probability: **{pred_prob:.1%}** for this game."
+    )
+    st.warning(
+        "⚠️ `team_prev_off_rating`, `team_prev_def_rating`, and `team_prev_net_rating` "
+        "are correlated (net = off − def), causing large opposite-signed bars that "
+        "partially cancel. Look at `team_prev_net_rating` as the cleaner single signal.",
+        icon=None,
     )
 
 except Exception as e:
