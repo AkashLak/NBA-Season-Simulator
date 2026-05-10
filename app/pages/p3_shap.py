@@ -29,6 +29,7 @@ if os.path.exists(shap_path):
             shap_df.head(14).sort_values("mean_abs_shap"),
             x="mean_abs_shap", y="feature", orientation="h",
             title="Mean |SHAP Value| across all games",
+            labels={"mean_abs_shap": "Mean |SHAP Value|", "feature": "Feature"},
             color="mean_abs_shap", color_continuous_scale="Viridis",
         )
         fig.update_layout(coloraxis_showscale=False, height=420)
@@ -79,10 +80,23 @@ try:
         st.stop()
 
     game = team_games.iloc[0]
+    opp_id = int(game["away_id"])
+    game_date = pd.Timestamp(game["game_date"]).strftime("%B %d, %Y")
+
+    from app.shared import CURRENT_TEAMS
+    team_name = CURRENT_TEAMS.get(team_id, f"Team {team_id}")
+    opp_name  = CURRENT_TEAMS.get(opp_id,  f"Team {opp_id}")
+
+    st.caption(
+        f"Matchup: **{team_name}** (home) vs **{opp_name}** (away) — {game_date}. "
+        f"Uses the first home game from the {predict_season - 1}–{str(predict_season)[2:]} "
+        f"schedule as a representative example, with both teams' prior-season stats as inputs."
+    )
+
     home_state = _init_team_state(team_id, _get_team_prior(team_id, prior_lookup))
     away_state = _init_team_state(
-        int(game["away_id"]),
-        _get_team_prior(int(game["away_id"]), prior_lookup)
+        opp_id,
+        _get_team_prior(opp_id, prior_lookup)
     )
 
     feat_row = _build_feature_row(home_state, away_state, game["game_date"])
@@ -130,7 +144,7 @@ try:
     pred_prob = sigmoid(pred)
 
     fig.update_layout(
-        title=f"First Home Game Breakdown — Season {predict_season}",
+        title=f"{team_name} vs {opp_name} — {game_date}",
         xaxis_title="Log-Odds Contribution (positive = helps win probability)",
         height=500,
     )
