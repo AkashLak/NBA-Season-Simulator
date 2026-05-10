@@ -62,6 +62,7 @@ services:
       AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
       AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
       DATABASE_URL: postgresql://lakers:lakers@postgres:5432/lakersdb
+      PYTHONPATH: /opt/airflow
     volumes:
       - ./dags:/opt/airflow/dags:ro
       - ./etl:/opt/airflow/etl:ro
@@ -86,6 +87,7 @@ services:
       AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
       DATABASE_URL: postgresql://lakers:lakers@postgres:5432/lakersdb
       MLFLOW_TRACKING_URI: http://mlflow:5000
+      PYTHONPATH: /opt/airflow
     volumes:
       - ./dags:/opt/airflow/dags:ro
       - ./etl:/opt/airflow/etl:ro
@@ -110,6 +112,7 @@ services:
       AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
       DATABASE_URL: postgresql://lakers:lakers@postgres:5432/lakersdb
       MLFLOW_TRACKING_URI: http://mlflow:5000
+      PYTHONPATH: /opt/airflow
     volumes:
       - ./dags:/opt/airflow/dags:ro
       - ./etl:/opt/airflow/etl:ro
