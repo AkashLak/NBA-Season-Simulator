@@ -1,8 +1,9 @@
-# Airflow DAG dependencies — intentionally excludes:
-#   sqlalchemy  (Airflow manages its own version; upgrading it breaks Airflow internals)
-#   mlflow      (optional tracking; DAGs skip it gracefully when unavailable)
-#   streamlit / altair / plotly (UI packages not needed in DAG workers)
+# Airflow DAG dependencies
+# SQLAlchemy is pinned to 1.4.x — Airflow 2.9.x is incompatible with SQLAlchemy 2.x.
+# Pinning prevents transitive dependencies from upgrading it.
+# mlflow / streamlit / altair / plotly excluded (not needed in DAG workers).
 
+sqlalchemy==1.4.49
 nba_api>=1.4.0
 requests>=2.31.0
 pandas>=2.0.0
