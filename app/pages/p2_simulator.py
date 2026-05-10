@@ -177,7 +177,10 @@ if st.button("Reset Roster"):
 
 # ── Live prediction ────────────────────────────────────────────────────────────
 st.divider()
-st.subheader("Predicted Wins (Modified Roster)")
+_current_ids = set(st.session_state[state_key]["player_id"].tolist()) \
+    if "player_id" in st.session_state[state_key].columns else set()
+_is_modified = _current_ids != st.session_state.get(orig_key, set())
+st.subheader("Predicted Wins (Modified Roster)" if _is_modified else "Predicted Wins (Original Roster)")
 
 feats = recompute_team_features(st.session_state[state_key])
 if feats:
