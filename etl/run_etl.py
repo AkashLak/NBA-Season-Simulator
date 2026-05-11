@@ -1,10 +1,11 @@
 import os
+
 import pandas as pd
 from dotenv import load_dotenv
 
-from etl.ingest import ingest_data, SEASONS
-from etl.transform import transform_data
+from etl.ingest import SEASONS, ingest_data
 from etl.load import get_engine, save_to_parquet, upsert_to_postgres
+from etl.transform import transform_data
 
 load_dotenv()
 
@@ -27,8 +28,10 @@ def run_etl(seasons: list = None):
     game_path = f"{PARQUET_DIR}/game_features.parquet"
     game_df = pd.read_parquet(game_path) if os.path.exists(game_path) else None
     if game_df is None:
-        print("Note: game_features.parquet not found — sos feature will be omitted. "
-              "Run python -m etl.ingest_games first, then re-run ETL.")
+        print(
+            "Note: game_features.parquet not found — sos feature will be omitted. "
+            "Run python -m etl.ingest_games first, then re-run ETL."
+        )
     transformed = transform_data(raw_data, game_df)
 
     # 3. Load to PostgreSQL (primary storage)
@@ -62,6 +65,7 @@ def run_etl(seasons: list = None):
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser(description="NBA season-level ETL pipeline")
     parser.add_argument(
         "--fast",

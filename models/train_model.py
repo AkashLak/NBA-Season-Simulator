@@ -8,14 +8,19 @@ import xgboost as xgb
 from dotenv import load_dotenv
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import Ridge
+from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import TimeSeriesSplit, cross_validate, learning_curve
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import r2_score, mean_squared_error
 from xgboost import XGBClassifier
 
-from models.data_prep import load_data, prepare_features, chronological_split
-from models.evaluate import compute_baseline, evaluate_model, check_quality_gate, write_eval_report
+from models.data_prep import chronological_split, load_data, prepare_features
+from models.evaluate import (
+    check_quality_gate,
+    compute_baseline,
+    evaluate_model,
+    write_eval_report,
+)
 from models.shap_analysis import save_shap_artifacts
 
 load_dotenv()
@@ -28,6 +33,7 @@ PLAYOFF_MODEL_PATH = os.path.join(MODEL_DIR, "playoff_classifier.pkl")
 
 
 # ── Candidate model definitions ───────────────────────────────────────────────
+
 
 def _build_candidates() -> dict:
     """
@@ -45,10 +51,12 @@ def _build_candidates() -> dict:
             random_state=42,
             verbosity=0,
         ),
-        "ridge": Pipeline([
-            ("scaler", StandardScaler()),
-            ("model", Ridge(alpha=1.0)),
-        ]),
+        "ridge": Pipeline(
+            [
+                ("scaler", StandardScaler()),
+                ("model", Ridge(alpha=1.0)),
+            ]
+        ),
         "random_forest": RandomForestRegressor(
             n_estimators=300,
             max_depth=6,
@@ -61,6 +69,7 @@ def _build_candidates() -> dict:
 
 # ── Cross-validation ──────────────────────────────────────────────────────────
 
+
 def _cross_validate(candidates: dict, X_train, y_train) -> dict:
     """
     Run TimeSeriesSplit(n_splits=5) CV on each candidate.
@@ -71,20 +80,23 @@ def _cross_validate(candidates: dict, X_train, y_train) -> dict:
     cv_results = {}
     for name, model in candidates.items():
         cv_out = cross_validate(
-            model, X_train, y_train,
-            cv=tscv, scoring="r2",
+            model,
+            X_train,
+            y_train,
+            cv=tscv,
+            scoring="r2",
             return_train_score=True,
             n_jobs=-1,
         )
-        val_mean  = float(cv_out["test_score"].mean())
-        val_std   = float(cv_out["test_score"].std())
+        val_mean = float(cv_out["test_score"].mean())
+        val_std = float(cv_out["test_score"].std())
         train_mean = float(cv_out["train_score"].mean())
-        gap        = round(train_mean - val_mean, 4)
+        gap = round(train_mean - val_mean, 4)
         cv_results[name] = {
-            "cv_r2_mean":       round(val_mean, 4),
-            "cv_r2_std":        round(val_std, 4),
+            "cv_r2_mean": round(val_mean, 4),
+            "cv_r2_std": round(val_std, 4),
             "cv_train_r2_mean": round(train_mean, 4),
-            "overfitting_gap":  gap,
+            "overfitting_gap": gap,
         }
         flag = " ⚠ high gap" if gap > 0.15 else ""
         print(
@@ -103,20 +115,23 @@ def _compute_learning_curve(model, X_train, y_train) -> dict:
     """
     tscv = TimeSeriesSplit(n_splits=5)
     train_sizes, train_scores, val_scores = learning_curve(
-        model, X_train, y_train,
+        model,
+        X_train,
+        y_train,
         cv=tscv,
         train_sizes=np.linspace(0.2, 1.0, 5),
         scoring="r2",
         n_jobs=-1,
     )
     return {
-        "train_sizes":  [int(s) for s in train_sizes],
-        "train_r2":     [round(float(s), 4) for s in train_scores.mean(axis=1)],
-        "val_r2":       [round(float(s), 4) for s in val_scores.mean(axis=1)],
+        "train_sizes": [int(s) for s in train_sizes],
+        "train_r2": [round(float(s), 4) for s in train_scores.mean(axis=1)],
+        "val_r2": [round(float(s), 4) for s in val_scores.mean(axis=1)],
     }
 
 
 # ── Model selection ───────────────────────────────────────────────────────────
+
 
 def _select_winner(candidates: dict, X_train, y_train, X_test, y_test) -> tuple:
     """
@@ -147,21 +162,24 @@ def _select_winner(candidates: dict, X_train, y_train, X_test, y_test) -> tuple:
         # Always compare against the original lowest-RMSE model, not the chain-swapped one
         if metrics["rmse"] - orig_best_metrics["rmse"] <= TIEBREAK_THRESHOLD:
             if TIEBREAK_ORDER.index(name) < TIEBREAK_ORDER.index(best_name):
-                print(f"  Tie-break: {name} preferred over {best_name} (RMSE delta={metrics['rmse'] - orig_best_metrics['rmse']:.3f} ≤ {TIEBREAK_THRESHOLD})")
+                delta = metrics["rmse"] - orig_best_metrics["rmse"]
+                print(
+                    f"  Tie-break: {name} preferred over {best_name} "
+                    f"(RMSE delta={delta:.3f} <= {TIEBREAK_THRESHOLD})"
+                )
                 best_name, best_metrics = name, metrics
 
     reason = (
         f"{best_name} had lowest test RMSE ({best_metrics['rmse']:.3f} wins). "
         + ", ".join(
-            f"{n}: RMSE={r['rmse']:.3f}"
-            for n, r in results.items()
-            if n != best_name
+            f"{n}: RMSE={r['rmse']:.3f}" for n, r in results.items() if n != best_name
         )
     )
     return best_name, fitted[best_name], results, reason
 
 
 # ── Playoff classifier ────────────────────────────────────────────────────────
+
 
 def _train_playoff_classifier(X_train, y_playoff_train) -> XGBClassifier:
     """Train XGBoost classifier for playoff probability (0/1 target)."""
@@ -180,8 +198,10 @@ def _train_playoff_classifier(X_train, y_playoff_train) -> XGBClassifier:
 
 # ── MLflow logging (graceful fallback if server unavailable) ──────────────────
 
-def _log_to_mlflow(winner_name, winner_model, all_results, cv_results,
-                   n_train, n_test, baseline=None):
+
+def _log_to_mlflow(
+    winner_name, winner_model, all_results, cv_results, n_train, n_test, baseline=None
+):
     """Log training run to MLflow. Prints warning and continues if server is down."""
     try:
         import mlflow
@@ -190,7 +210,9 @@ def _log_to_mlflow(winner_name, winner_model, all_results, cv_results,
         mlflow.set_tracking_uri(tracking_uri)
         mlflow.set_experiment("nba-win-predictor")
 
-        with mlflow.start_run(run_name=f"train_{winner_name}_{datetime.now():%Y%m%d_%H%M}"):
+        with mlflow.start_run(
+            run_name=f"train_{winner_name}_{datetime.now():%Y%m%d_%H%M}"
+        ):
             mlflow.set_tag("model_winner", winner_name)
             mlflow.log_param("n_training_samples", n_train)
             mlflow.log_param("n_test_samples", n_test)
@@ -205,22 +227,22 @@ def _log_to_mlflow(winner_name, winner_model, all_results, cv_results,
 
             # Per-candidate CV and holdout metrics
             for name, metrics in all_results.items():
-                mlflow.log_metric(f"{name}_test_r2",   metrics["r2"])
+                mlflow.log_metric(f"{name}_test_r2", metrics["r2"])
                 mlflow.log_metric(f"{name}_test_rmse", metrics["rmse"])
             for name, cv in cv_results.items():
-                mlflow.log_metric(f"{name}_cv_r2_mean",       cv["cv_r2_mean"])
+                mlflow.log_metric(f"{name}_cv_r2_mean", cv["cv_r2_mean"])
                 mlflow.log_metric(f"{name}_cv_train_r2_mean", cv["cv_train_r2_mean"])
-                mlflow.log_metric(f"{name}_overfitting_gap",  cv["overfitting_gap"])
+                mlflow.log_metric(f"{name}_overfitting_gap", cv["overfitting_gap"])
 
             # Winner summary
             winner_metrics = all_results[winner_name]
-            mlflow.log_metric("winner_r2",   winner_metrics["r2"])
+            mlflow.log_metric("winner_r2", winner_metrics["r2"])
             mlflow.log_metric("winner_rmse", winner_metrics["rmse"])
 
             # Baseline comparison
             if baseline:
                 mlflow.log_metric("baseline_rmse", baseline["baseline_rmse"])
-                mlflow.log_metric("baseline_r2",   baseline["baseline_r2"])
+                mlflow.log_metric("baseline_r2", baseline["baseline_r2"])
                 improvement = baseline["baseline_rmse"] - winner_metrics["rmse"]
                 mlflow.log_metric("improvement_over_baseline", round(improvement, 4))
 
@@ -234,6 +256,7 @@ def _log_to_mlflow(winner_name, winner_model, all_results, cv_results,
 
 
 # ── Main training entry point ─────────────────────────────────────────────────
+
 
 def run_training() -> dict:
     """
@@ -263,8 +286,8 @@ def run_training() -> dict:
     y_wins = y_wins.iloc[sort_order]
     y_playoff = y_playoff.iloc[sort_order]
 
-    X_train, X_test, y_train, y_test, y_playoff_train, y_playoff_test = chronological_split(
-        X, y_wins, y_playoff, df
+    X_train, X_test, y_train, y_test, y_playoff_train, y_playoff_test = (
+        chronological_split(X, y_wins, y_playoff, df)
     )
     print(f"Train: {len(X_train)} rows  |  Holdout: {len(X_test)} rows")
 
@@ -287,14 +310,18 @@ def run_training() -> dict:
     print("\nComputing naive baseline (predict last season's wins)...")
     baseline = compute_baseline(df, X_test)
     improvement = baseline["baseline_rmse"] - winner_metrics["rmse"]
-    print(f"  Baseline RMSE={baseline['baseline_rmse']:.4f}  R²={baseline['baseline_r2']:.4f}")
-    print(f"  Model    RMSE={winner_metrics['rmse']:.4f}  improvement={improvement:+.4f} wins")
+    print(
+        f"  Baseline RMSE={baseline['baseline_rmse']:.4f}  R²={baseline['baseline_r2']:.4f}"
+    )
+    print(
+        f"  Model    RMSE={winner_metrics['rmse']:.4f}  improvement={improvement:+.4f} wins"
+    )
 
     baseline_warning = None
     if winner_metrics["rmse"] >= baseline["baseline_rmse"]:
         baseline_warning = (
             f"Season model ({winner_name}) does not improve on naive baseline "
-            f"(model RMSE={winner_metrics['rmse']:.4f} ≥ baseline={baseline['baseline_rmse']:.4f}). "
+            f"(RMSE={winner_metrics['rmse']:.4f} >= baseline={baseline['baseline_rmse']:.4f}). "
             "Consider revisiting feature engineering."
         )
         print(f"WARNING: {baseline_warning}")
@@ -311,7 +338,6 @@ def run_training() -> dict:
     # ── Step 5: Playoff classifier ────────────────────────────────────────────
     print("\nTraining playoff probability classifier...")
     playoff_model = _train_playoff_classifier(X_train, y_playoff_train)
-    from sklearn.metrics import accuracy_score, roc_auc_score
     playoff_probs = playoff_model.predict_proba(X_test)[:, 1]
     playoff_auc = float(roc_auc_score(y_playoff_test, playoff_probs))
     print(f"  Playoff classifier AUC: {playoff_auc:.4f}")
@@ -333,8 +359,12 @@ def run_training() -> dict:
 
     # ── Step 8: MLflow ────────────────────────────────────────────────────────
     run_id = _log_to_mlflow(
-        winner_name, winner_model, all_results, cv_results,
-        n_train=len(X_train), n_test=len(X_test),
+        winner_name,
+        winner_model,
+        all_results,
+        cv_results,
+        n_train=len(X_train),
+        n_test=len(X_test),
         baseline=baseline,
     )
 
@@ -372,8 +402,10 @@ def run_training() -> dict:
     print("\n" + "=" * 60)
     print(f"Training complete. Winner: {winner_name.upper()}")
     print(f"  R²={winner_metrics['r2']:.4f}  RMSE={winner_metrics['rmse']:.4f}")
-    print(f"  Baseline RMSE={baseline['baseline_rmse']:.4f}  "
-          f"Improvement={improvement:+.4f} wins")
+    print(
+        f"  Baseline RMSE={baseline['baseline_rmse']:.4f}  "
+        f"Improvement={improvement:+.4f} wins"
+    )
 
     return report
 
@@ -381,9 +413,13 @@ def run_training() -> dict:
 def load_models() -> tuple:
     """Load the saved wins regressor and playoff classifier from disk."""
     if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(f"No trained model at {MODEL_PATH}. Run run_training() first.")
+        raise FileNotFoundError(
+            f"No trained model at {MODEL_PATH}. Run run_training() first."
+        )
     wins_model = joblib.load(MODEL_PATH)
-    playoff_model = joblib.load(PLAYOFF_MODEL_PATH) if os.path.exists(PLAYOFF_MODEL_PATH) else None
+    playoff_model = (
+        joblib.load(PLAYOFF_MODEL_PATH) if os.path.exists(PLAYOFF_MODEL_PATH) else None
+    )
     return wins_model, playoff_model
 
 

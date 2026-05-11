@@ -1,4 +1,5 @@
 import os
+
 import pandas as pd
 from sqlalchemy import create_engine, text
 
@@ -17,7 +18,9 @@ def save_to_parquet(df: pd.DataFrame, path: str):
     print(f"Saved {len(df)} rows to {path}")
 
 
-def save_to_postgres(df: pd.DataFrame, table_name: str, engine, if_exists: str = "replace"):
+def save_to_postgres(
+    df: pd.DataFrame, table_name: str, engine, if_exists: str = "replace"
+):
     """Write DataFrame to a PostgreSQL table (full replace — use for initial loads)."""
     df.to_sql(table_name, engine, if_exists=if_exists, index=False)
     print(f"Saved {len(df)} rows to postgres table '{table_name}'")
@@ -26,10 +29,13 @@ def save_to_postgres(df: pd.DataFrame, table_name: str, engine, if_exists: str =
 def _get_table_columns(table_name: str, engine) -> set:
     """Return the set of column names that exist in the target PostgreSQL table."""
     with engine.begin() as conn:
-        result = conn.execute(text(
-            "SELECT column_name FROM information_schema.columns "
-            "WHERE table_schema = 'public' AND table_name = :t"
-        ), {"t": table_name})
+        result = conn.execute(
+            text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND table_name = :t"
+            ),
+            {"t": table_name},
+        )
         return {row[0] for row in result}
 
 
@@ -54,7 +60,7 @@ def upsert_to_postgres(df: pd.DataFrame, table_name: str, engine, conflict_cols:
     temp_table = f"_tmp_{table_name}"
     df.to_sql(temp_table, engine, if_exists="replace", index=False)
 
-    cols     = ", ".join(f'"{c}"' for c in valid_cols)
+    cols = ", ".join(f'"{c}"' for c in valid_cols)
     conflict = ", ".join(f'"{c}"' for c in conflict_cols)
 
     update_cols = [c for c in valid_cols if c not in conflict_cols]

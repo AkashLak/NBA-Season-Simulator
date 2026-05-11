@@ -1,6 +1,7 @@
 import time
+
 import pandas as pd
-from nba_api.stats.endpoints import leaguedashteamstats, leaguedashplayerstats
+from nba_api.stats.endpoints import leaguedashplayerstats, leaguedashteamstats
 
 LAKERS_TEAM_ID = 1610612747
 
@@ -46,14 +47,23 @@ def fetch_team_season_stats(season: str) -> pd.DataFrame:
     ).get_data_frames()[0]
     _sleep()
 
-    adv_cols = [c for c in [
-        "TEAM_ID",
-        "OFF_RATING", "DEF_RATING", "NET_RATING",
-        "PACE", "TS_PCT", "EFG_PCT",
-        "OREB_PCT", "DREB_PCT",       # rebounding splits — OREB_PCT is a key four-factor
-        "TM_TOV_PCT",                 # team turnover rate — more precise than AST/TOV ratio
-        "PIE",
-    ] if c in advanced.columns]
+    adv_cols = [
+        c
+        for c in [
+            "TEAM_ID",
+            "OFF_RATING",
+            "DEF_RATING",
+            "NET_RATING",
+            "PACE",
+            "TS_PCT",
+            "EFG_PCT",
+            "OREB_PCT",
+            "DREB_PCT",  # rebounding splits — OREB_PCT is a key four-factor
+            "TM_TOV_PCT",  # team turnover rate — more precise than AST/TOV ratio
+            "PIE",
+        ]
+        if c in advanced.columns
+    ]
     merged = base.merge(advanced[adv_cols], on="TEAM_ID", how="left")
     merged["season"] = season
     merged["season_year"] = season_to_year(season)
@@ -82,10 +92,20 @@ def fetch_player_season_stats(season: str) -> pd.DataFrame:
     ).get_data_frames()[0]
     _sleep()
 
-    base_cols = [c for c in ["PLAYER_ID", "PLAYER_NAME", "TEAM_ID", "AGE", "GP", "MIN", "PTS"] if c in base.columns]
-    adv_cols = [c for c in ["PLAYER_ID", "TEAM_ID", "PIE", "NET_RATING", "USG_PCT", "TS_PCT"] if c in advanced.columns]
+    base_cols = [
+        c
+        for c in ["PLAYER_ID", "PLAYER_NAME", "TEAM_ID", "AGE", "GP", "MIN", "PTS"]
+        if c in base.columns
+    ]
+    adv_cols = [
+        c
+        for c in ["PLAYER_ID", "TEAM_ID", "PIE", "NET_RATING", "USG_PCT", "TS_PCT"]
+        if c in advanced.columns
+    ]
 
-    merged = base[base_cols].merge(advanced[adv_cols], on=["PLAYER_ID", "TEAM_ID"], how="left")
+    merged = base[base_cols].merge(
+        advanced[adv_cols], on=["PLAYER_ID", "TEAM_ID"], how="left"
+    )
     merged["season_year"] = season_to_year(season)
     return merged
 
@@ -118,8 +138,19 @@ def ingest_data(seasons: list = None) -> dict:
         except Exception as e:
             print(f"  Warning: player stats failed for {season}: {e}")
 
-    team_stats = pd.concat(all_team_stats, ignore_index=True) if all_team_stats else pd.DataFrame()
-    player_stats = pd.concat(all_player_stats, ignore_index=True) if all_player_stats else pd.DataFrame()
+    team_stats = (
+        pd.concat(all_team_stats, ignore_index=True)
+        if all_team_stats
+        else pd.DataFrame()
+    )
+    player_stats = (
+        pd.concat(all_player_stats, ignore_index=True)
+        if all_player_stats
+        else pd.DataFrame()
+    )
 
-    print(f"Ingestion complete: {len(team_stats)} team-season rows, {len(player_stats)} player-season rows")
+    print(
+        f"Ingestion complete: {len(team_stats)} team-season rows, "
+        f"{len(player_stats)} player-season rows"
+    )
     return {"team_stats": team_stats, "player_stats": player_stats}

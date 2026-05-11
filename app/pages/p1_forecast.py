@@ -1,4 +1,3 @@
-import json
 import os
 import sys
 
@@ -8,8 +7,14 @@ import streamlit as st
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from app.shared import (
-    load_ml_features, load_models, load_season_report, load_game_report,
-    team_selector, season_selector, wins_color, no_data_warning, LAKERS_ID,
+    load_game_report,
+    load_ml_features,
+    load_models,
+    load_season_report,
+    no_data_warning,
+    season_selector,
+    team_selector,
+    wins_color,
 )
 
 st.header("Season Forecast")
@@ -30,17 +35,21 @@ with col_season:
     selected_season = season_selector(key="p1_season", df=ml_df)
     predict_season = min(selected_season + 1, max_season + 1)
 
-st.caption(f"Predicting **{predict_season}** season using **{selected_season}** as the prior-season baseline.")
+st.caption(
+    f"Predicting **{predict_season}** season using **{selected_season}** "
+    "as the prior-season baseline."
+)
 
 # ── Season model (fast, preseason estimate) ────────────────────────────────────
 season_pred, sim_pred = None, None
 season_report = load_season_report()
-game_report   = load_game_report()
+game_report = load_game_report()
 
 if season_model is not None:
     try:
         from etl.transform import build_feature_row
         from models.data_prep import FEATURE_COLS
+
         row = build_feature_row(team_id, predict_season, ml_df, None, 0)
         avail = [c for c in FEATURE_COLS if c in row.columns]
         X = row[avail]
@@ -53,6 +62,7 @@ if game_model is not None:
     try:
         from app.shared import get_engine
         from models.simulate_season import simulate_team
+
         with st.spinner("Running league simulation…"):
             result = simulate_team(team_id, predict_season, game_model, get_engine())
         sim_pred = result["expected_wins"]
@@ -65,6 +75,7 @@ if playoff_model is not None and season_model is not None and season_pred is not
     try:
         from etl.transform import build_feature_row
         from models.data_prep import FEATURE_COLS
+
         row = build_feature_row(team_id, predict_season, ml_df, None, 0)
         avail = [c for c in FEATURE_COLS if c in row.columns]
         playoff_prob = float(playoff_model.predict_proba(row[avail])[0][1])
@@ -74,9 +85,11 @@ if playoff_model is not None and season_model is not None and season_pred is not
 # ── Display ────────────────────────────────────────────────────────────────────
 st.divider()
 
-rmse = season_report.get("results", {}).get(
-    season_report.get("winner", ""), {}
-).get("rmse", 5.0)
+rmse = (
+    season_report.get("results", {})
+    .get(season_report.get("winner", ""), {})
+    .get("rmse", 5.0)
+)
 game_logloss = game_report.get("winner_metrics", {}).get("holdout_logloss")
 
 col1, col2 = st.columns(2)
@@ -136,10 +149,17 @@ if baseline:
     improvement = season_report.get("improvement_over_baseline", 0)
     col_b1, col_b2, col_b3 = st.columns(3)
     col_b1.metric("Model RMSE", f"±{rmse:.1f} wins")
-    col_b2.metric("Naive Baseline RMSE", f"±{b_rmse:.1f} wins",
-                  help="Predict: this season's wins = last season's wins")
-    col_b3.metric("Improvement", f"{improvement:+.1f} wins",
-                  delta=f"{improvement:+.1f}", delta_color="normal")
+    col_b2.metric(
+        "Naive Baseline RMSE",
+        f"±{b_rmse:.1f} wins",
+        help="Predict: this season's wins = last season's wins",
+    )
+    col_b3.metric(
+        "Improvement",
+        f"{improvement:+.1f} wins",
+        delta=f"{improvement:+.1f}",
+        delta_color="normal",
+    )
 
     if season_report.get("baseline_warning"):
         st.warning(season_report["baseline_warning"])

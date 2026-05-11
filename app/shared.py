@@ -12,7 +12,6 @@ import os
 import sys
 
 import joblib
-import numpy as np
 import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
@@ -24,9 +23,9 @@ _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-LAKERS_ID    = 1610612747
-PROCESSED    = "processed"
-MODELS_DIR   = "models"
+LAKERS_ID = 1610612747
+PROCESSED = "processed"
+MODELS_DIR = "models"
 
 # Canonical current team names keyed by nba_api team_id.
 # Covers all relocations/rebrands: Seattle→OKC, NJ→Brooklyn, Vancouver→Memphis, etc.
@@ -66,6 +65,7 @@ CURRENT_TEAMS: dict[int, str] = {
 
 # ── Engine ─────────────────────────────────────────────────────────────────────
 
+
 @st.cache_resource
 def get_engine():
     """SQLAlchemy engine. Returns None if DATABASE_URL is not set (Parquet fallback)."""
@@ -74,12 +74,14 @@ def get_engine():
         return None
     try:
         from sqlalchemy import create_engine
+
         return create_engine(url)
     except Exception:
         return None
 
 
 # ── Season-level data ──────────────────────────────────────────────────────────
+
 
 @st.cache_data(ttl=3600)
 def load_ml_features() -> pd.DataFrame:
@@ -153,6 +155,7 @@ def load_predictions_history() -> pd.DataFrame:
 
 # ── Game-level data ────────────────────────────────────────────────────────────
 
+
 @st.cache_data(ttl=3600)
 def load_game_features() -> pd.DataFrame:
     engine = get_engine()
@@ -172,12 +175,14 @@ def load_game_features() -> pd.DataFrame:
 
 # ── Models ─────────────────────────────────────────────────────────────────────
 
+
 @st.cache_resource
 def load_models() -> tuple:
     """
     Returns (season_model, game_model, playoff_model).
     Any that are missing return None — pages must handle None gracefully.
     """
+
     def _load(path):
         return joblib.load(path) if os.path.exists(path) else None
 
@@ -189,6 +194,7 @@ def load_models() -> tuple:
 
 
 # ── Report helpers ─────────────────────────────────────────────────────────────
+
 
 @st.cache_data(ttl=300)
 def load_season_report() -> dict:
@@ -219,6 +225,7 @@ def load_learning_curve() -> dict:
 
 # ── UI helpers ─────────────────────────────────────────────────────────────────
 
+
 def team_selector(label: str = "Team", key: str = "team_sel") -> int:
     """Dropdown of all 30 current franchises sorted alphabetically, Lakers default."""
     sorted_teams = sorted(CURRENT_TEAMS.items(), key=lambda x: x[1])
@@ -234,8 +241,9 @@ def team_selector(label: str = "Team", key: str = "team_sel") -> int:
     )
 
 
-def season_selector(label: str = "Season", key: str = "season_sel",
-                    df: pd.DataFrame = None) -> int:
+def season_selector(
+    label: str = "Season", key: str = "season_sel", df: pd.DataFrame = None
+) -> int:
     """Dropdown of available seasons, most recent selected by default."""
     if df is None:
         df = load_ml_features()
@@ -247,10 +255,10 @@ def season_selector(label: str = "Season", key: str = "season_sel",
 
 def wins_color(wins: float) -> str:
     if wins >= 50:
-        return "#2ecc71"   # green
+        return "#2ecc71"  # green
     if wins >= 44:
-        return "#f39c12"   # amber
-    return "#e74c3c"       # red
+        return "#f39c12"  # amber
+    return "#e74c3c"  # red
 
 
 def no_data_warning(msg: str = "Run the ETL pipeline first to populate data."):

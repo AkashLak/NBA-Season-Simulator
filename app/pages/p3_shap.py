@@ -1,14 +1,17 @@
 import os
 import sys
 
-import numpy as np
 import pandas as pd
 import streamlit as st
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from app.shared import (
-    load_ml_features, load_models, team_selector, season_selector, no_data_warning,
+    load_ml_features,
+    load_models,
+    no_data_warning,
+    season_selector,
+    team_selector,
 )
 
 st.header("Why This Prediction")
@@ -22,15 +25,19 @@ st.info(
 shap_path = os.path.join("processed", "game_shap_summary.parquet")
 if os.path.exists(shap_path):
     import plotly.express as px
+
     shap_df = pd.read_parquet(shap_path)
     if "feature" in shap_df.columns and "mean_abs_shap" in shap_df.columns:
         st.subheader("Global Feature Importance")
         fig = px.bar(
             shap_df.head(14).sort_values("mean_abs_shap"),
-            x="mean_abs_shap", y="feature", orientation="h",
+            x="mean_abs_shap",
+            y="feature",
+            orientation="h",
             title="Mean |SHAP Value| across all games",
             labels={"mean_abs_shap": "Mean |SHAP Value|", "feature": "Feature"},
-            color="mean_abs_shap", color_continuous_scale="Viridis",
+            color="mean_abs_shap",
+            color_continuous_scale="Viridis",
         )
         fig.update_layout(coloraxis_showscale=False, height=420)
         st.plotly_chart(fig, use_container_width=True)
@@ -61,14 +68,16 @@ with col_s:
 predict_season = min(selected_season + 1, int(ml_df["season_year"].max()) + 1)
 
 try:
-    from models.simulate_season import (
-        _get_schedule, _build_prior_features_lookup,
-        _get_team_prior, _build_feature_row, _init_team_state,
-        _rolling_pct, _rest_days,
-    )
     from app.shared import get_engine
     from etl.transform_games import GAME_FEATURE_COLS
     from models.shap_analysis import get_prediction_explanation
+    from models.simulate_season import (
+        _build_feature_row,
+        _build_prior_features_lookup,
+        _get_schedule,
+        _get_team_prior,
+        _init_team_state,
+    )
 
     engine = get_engine()
     schedule = _get_schedule(predict_season, engine)
@@ -84,8 +93,9 @@ try:
     game_date = pd.Timestamp(game["game_date"]).strftime("%B %d, %Y")
 
     from app.shared import CURRENT_TEAMS
+
     team_name = CURRENT_TEAMS.get(team_id, f"Team {team_id}")
-    opp_name  = CURRENT_TEAMS.get(opp_id,  f"Team {opp_id}")
+    opp_name = CURRENT_TEAMS.get(opp_id, f"Team {opp_id}")
 
     st.caption(
         f"Matchup: **{team_name}** (home) vs **{opp_name}** (away) — {game_date}. "
@@ -94,10 +104,7 @@ try:
     )
 
     home_state = _init_team_state(team_id, _get_team_prior(team_id, prior_lookup))
-    away_state = _init_team_state(
-        opp_id,
-        _get_team_prior(opp_id, prior_lookup)
-    )
+    away_state = _init_team_state(opp_id, _get_team_prior(opp_id, prior_lookup))
 
     feat_row = _build_feature_row(home_state, away_state, game["game_date"])
     X = pd.DataFrame([feat_row])[GAME_FEATURE_COLS]
@@ -107,7 +114,7 @@ try:
     if os.path.exists(gf_path):
         bg_df = pd.read_parquet(gf_path)
         avail = [c for c in GAME_FEATURE_COLS if c in bg_df.columns]
-        X_bg  = bg_df[avail].dropna().sample(min(200, len(bg_df)), random_state=42)
+        X_bg = bg_df[avail].dropna().sample(min(200, len(bg_df)), random_state=42)
     else:
         X_bg = X.copy()
 
@@ -115,28 +122,32 @@ try:
 
     # SHAP waterfall via plotly
     import plotly.graph_objects as go
+
     contribs = explanation["contributions"]
     features = list(contribs.keys())
-    values   = list(contribs.values())
-    base     = explanation["base_value"]
-    pred     = explanation["predicted_wins"]
+    values = list(contribs.values())
+    base = explanation["base_value"]
+    pred = explanation["predicted_wins"]
 
     measure = ["relative"] * len(features) + ["total"]
     y_labels = features + ["Prediction"]
-    x_vals   = values   + [0]
+    x_vals = values + [0]
 
-    fig = go.Figure(go.Waterfall(
-        orientation="h",
-        measure=measure,
-        y=y_labels,
-        x=x_vals,
-        base=base,
-        connector={"line": {"color": "rgba(100,100,100,0.3)"}},
-        decreasing={"marker": {"color": "#e74c3c"}},
-        increasing={"marker": {"color": "#2ecc71"}},
-        totals={"marker": {"color": "#3498db"}},
-    ))
+    fig = go.Figure(
+        go.Waterfall(
+            orientation="h",
+            measure=measure,
+            y=y_labels,
+            x=x_vals,
+            base=base,
+            connector={"line": {"color": "rgba(100,100,100,0.3)"}},
+            decreasing={"marker": {"color": "#e74c3c"}},
+            increasing={"marker": {"color": "#2ecc71"}},
+            totals={"marker": {"color": "#3498db"}},
+        )
+    )
     import math
+
     def sigmoid(x):
         return 1 / (1 + math.exp(-x))
 

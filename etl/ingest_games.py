@@ -64,7 +64,9 @@ def fetch_game_logs(season: str) -> pd.DataFrame:
     # Drop any rows where opponent could not be resolved (rare: incomplete data)
     missing_opp = logs["opponent_id"].isna().sum()
     if missing_opp > 0:
-        print(f"  Warning: {missing_opp} rows missing opponent_id for {season}, dropping")
+        print(
+            f"  Warning: {missing_opp} rows missing opponent_id for {season}, dropping"
+        )
         logs = logs.dropna(subset=["opponent_id"])
 
     logs["opponent_id"] = logs["opponent_id"].astype(int)
@@ -83,9 +85,16 @@ def fetch_game_logs(season: str) -> pd.DataFrame:
     logs["game_date"] = pd.to_datetime(logs["game_date"])
 
     keep = [
-        "game_id", "game_date", "season_year",
-        "team_id", "team_abbr", "opponent_id",
-        "home_flag", "win", "pts", "plus_minus",
+        "game_id",
+        "game_date",
+        "season_year",
+        "team_id",
+        "team_abbr",
+        "opponent_id",
+        "home_flag",
+        "win",
+        "pts",
+        "plus_minus",
     ]
     return logs[[c for c in keep if c in logs.columns]].copy()
 
@@ -113,7 +122,9 @@ def ingest_games(seasons: list = None) -> pd.DataFrame:
         return pd.DataFrame()
 
     result = pd.concat(frames, ignore_index=True)
-    print(f"Game ingestion complete: {len(result)} total rows across {len(seasons)} seasons")
+    print(
+        f"Game ingestion complete: {len(result)} total rows across {len(seasons)} seasons"
+    )
     return result
 
 
@@ -131,6 +142,7 @@ if __name__ == "__main__":
     df = ingest_games(target_seasons)
 
     import os
+
     os.makedirs("processed", exist_ok=True)
     df.to_parquet("processed/raw_game_logs.parquet", index=False)
     print(f"Saved to processed/raw_game_logs.parquet ({len(df)} rows)")

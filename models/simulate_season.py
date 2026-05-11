@@ -45,9 +45,11 @@ LEAGUE_AVG_DEF_RATING = 113.0
 
 # ── Schedule loading ──────────────────────────────────────────────────────────
 
+
 def _load_schedule_from_db(season_year: int, engine) -> pd.DataFrame:
     """One row per game (home team perspective) from nba_game_features."""
     from sqlalchemy import text
+
     with engine.connect() as conn:
         return pd.read_sql(
             text(
@@ -67,8 +69,17 @@ def _load_schedule_from_parquet(season_year: int) -> pd.DataFrame:
     path = os.path.join(PROCESSED_DIR, "game_features.parquet")
     if not os.path.exists(path):
         return pd.DataFrame()
-    df = pd.read_parquet(path, columns=["game_id", "game_date", "season_year",
-                                         "team_id", "opponent_id", "home_flag"])
+    df = pd.read_parquet(
+        path,
+        columns=[
+            "game_id",
+            "game_date",
+            "season_year",
+            "team_id",
+            "opponent_id",
+            "home_flag",
+        ],
+    )
     df = df[(df["season_year"] == season_year) & (df["home_flag"] == 1)].copy()
     df = df.rename(columns={"team_id": "home_id", "opponent_id": "away_id"})
     df["game_date"] = pd.to_datetime(df["game_date"])
@@ -106,6 +117,7 @@ def _get_schedule(season_year: int, engine=None, _depth: int = 0) -> pd.DataFram
 
 # ── Prior-season feature loading ──────────────────────────────────────────────
 
+
 def _load_ml_features(engine=None) -> pd.DataFrame:
     """Load ml_training_features — PostgreSQL first, Parquet fallback."""
     if engine is not None:
@@ -120,8 +132,17 @@ def _load_ml_features(engine=None) -> pd.DataFrame:
     path = os.path.join(PROCESSED_DIR, "ml_features.parquet")
     if os.path.exists(path):
         df = pd.read_parquet(path)
-        cols = [c for c in ["team_id", "season_year", "off_rating", "def_rating", "net_rating"]
-                if c in df.columns]
+        cols = [
+            c
+            for c in [
+                "team_id",
+                "season_year",
+                "off_rating",
+                "def_rating",
+                "net_rating",
+            ]
+            if c in df.columns
+        ]
         return df[cols]
     return pd.DataFrame()
 
@@ -152,14 +173,18 @@ def _build_prior_features_lookup(season_year: int, engine=None) -> dict:
 
 def _get_team_prior(team_id: int, lookup: dict) -> dict:
     """Return prior-season features for a team, defaulting to league averages."""
-    return lookup.get(team_id, {
-        "net_rating": LEAGUE_AVG_NET_RATING,
-        "off_rating": LEAGUE_AVG_OFF_RATING,
-        "def_rating": LEAGUE_AVG_DEF_RATING,
-    })
+    return lookup.get(
+        team_id,
+        {
+            "net_rating": LEAGUE_AVG_NET_RATING,
+            "off_rating": LEAGUE_AVG_OFF_RATING,
+            "def_rating": LEAGUE_AVG_DEF_RATING,
+        },
+    )
 
 
 # ── Simulation helpers ────────────────────────────────────────────────────────
+
 
 def _rolling_pct(win_history: list, n: int) -> float:
     """
@@ -184,20 +209,20 @@ def _build_feature_row(home_state: dict, away_state: dict, game_date) -> dict:
     Column order matches GAME_FEATURE_COLS exactly.
     """
     row = {
-        "team_rolling_win_pct_5":   _rolling_pct(home_state["win_history"], 5),
-        "team_rolling_win_pct_10":  _rolling_pct(home_state["win_history"], 10),
-        "opp_rolling_win_pct_5":    _rolling_pct(away_state["win_history"], 5),
-        "opp_rolling_win_pct_10":   _rolling_pct(away_state["win_history"], 10),
-        "team_prev_net_rating":     home_state["prev_net_rating"],
-        "team_prev_off_rating":     home_state["prev_off_rating"],
-        "team_prev_def_rating":     home_state["prev_def_rating"],
-        "opp_prev_net_rating":      away_state["prev_net_rating"],
-        "opp_prev_off_rating":      away_state["prev_off_rating"],
-        "opp_prev_def_rating":      away_state["prev_def_rating"],
-        "home_flag":                1,          # always home team's perspective
-        "rest_days":                _rest_days(home_state["last_game_date"], game_date),
-        "opp_rest_days":            _rest_days(away_state["last_game_date"], game_date),
-        "days_into_season":         home_state["games_played"] + 1,
+        "team_rolling_win_pct_5": _rolling_pct(home_state["win_history"], 5),
+        "team_rolling_win_pct_10": _rolling_pct(home_state["win_history"], 10),
+        "opp_rolling_win_pct_5": _rolling_pct(away_state["win_history"], 5),
+        "opp_rolling_win_pct_10": _rolling_pct(away_state["win_history"], 10),
+        "team_prev_net_rating": home_state["prev_net_rating"],
+        "team_prev_off_rating": home_state["prev_off_rating"],
+        "team_prev_def_rating": home_state["prev_def_rating"],
+        "opp_prev_net_rating": away_state["prev_net_rating"],
+        "opp_prev_off_rating": away_state["prev_off_rating"],
+        "opp_prev_def_rating": away_state["prev_def_rating"],
+        "home_flag": 1,  # always home team's perspective
+        "rest_days": _rest_days(home_state["last_game_date"], game_date),
+        "opp_rest_days": _rest_days(away_state["last_game_date"], game_date),
+        "days_into_season": home_state["games_played"] + 1,
     }
     # Guard: every key in the row must match GAME_FEATURE_COLS
     assert set(row.keys()) == set(GAME_FEATURE_COLS), (
@@ -210,18 +235,25 @@ def _build_feature_row(home_state: dict, away_state: dict, game_date) -> dict:
 
 def _init_team_state(team_id: int, prior: dict) -> dict:
     return {
-        "win_history":    [],
+        "win_history": [],
         "last_game_date": None,
-        "games_played":   0,
-        "expected_wins":  0.0,
-        "game_probs":     [],
-        "prev_net_rating": prior.get("prev_net_rating", prior.get("net_rating", LEAGUE_AVG_NET_RATING)),
-        "prev_off_rating": prior.get("prev_off_rating", prior.get("off_rating", LEAGUE_AVG_OFF_RATING)),
-        "prev_def_rating": prior.get("prev_def_rating", prior.get("def_rating", LEAGUE_AVG_DEF_RATING)),
+        "games_played": 0,
+        "expected_wins": 0.0,
+        "game_probs": [],
+        "prev_net_rating": prior.get(
+            "prev_net_rating", prior.get("net_rating", LEAGUE_AVG_NET_RATING)
+        ),
+        "prev_off_rating": prior.get(
+            "prev_off_rating", prior.get("off_rating", LEAGUE_AVG_OFF_RATING)
+        ),
+        "prev_def_rating": prior.get(
+            "prev_def_rating", prior.get("def_rating", LEAGUE_AVG_DEF_RATING)
+        ),
     }
 
 
 # ── Core simulation ───────────────────────────────────────────────────────────
+
 
 def simulate_league(
     season_year: int,
@@ -261,14 +293,14 @@ def simulate_league(
         team_state[tid] = _init_team_state(tid, prior)
 
     for _, game in schedule.iterrows():
-        home_id  = int(game["home_id"])
-        away_id  = int(game["away_id"])
-        gdate    = game["game_date"]
-        hs       = team_state[home_id]
-        aws      = team_state[away_id]
+        home_id = int(game["home_id"])
+        away_id = int(game["away_id"])
+        gdate = game["game_date"]
+        hs = team_state[home_id]
+        aws = team_state[away_id]
 
         feature_row = _build_feature_row(hs, aws, gdate)
-        X = pd.DataFrame([feature_row])[GAME_FEATURE_COLS]   # enforce column order
+        X = pd.DataFrame([feature_row])[GAME_FEATURE_COLS]  # enforce column order
 
         win_prob = float(np.clip(game_model.predict_proba(X)[0][1], 0.0, 1.0))
 
@@ -276,20 +308,20 @@ def simulate_league(
         hs["win_history"].append(win_prob)
         hs["game_probs"].append(win_prob)
         hs["expected_wins"] += win_prob
-        hs["games_played"]  += 1
+        hs["games_played"] += 1
         hs["last_game_date"] = gdate
 
         # Update away team (away win prob = 1 - home win prob)
         aws["win_history"].append(1.0 - win_prob)
         aws["game_probs"].append(1.0 - win_prob)
-        aws["expected_wins"] += (1.0 - win_prob)
-        aws["games_played"]  += 1
+        aws["expected_wins"] += 1.0 - win_prob
+        aws["games_played"] += 1
         aws["last_game_date"] = gdate
 
     return {
         tid: {
             "expected_wins": round(state["expected_wins"], 1),
-            "game_probs":    state["game_probs"],
+            "game_probs": state["game_probs"],
         }
         for tid, state in team_state.items()
     }

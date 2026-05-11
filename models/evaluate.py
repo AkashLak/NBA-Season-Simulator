@@ -1,8 +1,9 @@
 import json
 import os
+
 import numpy as np
 import pandas as pd
-from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.metrics import mean_squared_error, r2_score
 
 
 def compute_baseline(df_full: pd.DataFrame, X_test: pd.DataFrame) -> dict:
@@ -12,15 +13,15 @@ def compute_baseline(df_full: pd.DataFrame, X_test: pd.DataFrame) -> dict:
     displayed on Page 6 alongside model metrics.
     """
     actual = df_full.loc[X_test.index, "wins_normalized"]
-    prev   = df_full.loc[X_test.index, "prev_wins_normalized"]
-    valid  = prev.notna() & actual.notna()
+    prev = df_full.loc[X_test.index, "prev_wins_normalized"]
+    valid = prev.notna() & actual.notna()
 
     baseline_rmse = float(np.sqrt(mean_squared_error(actual[valid], prev[valid])))
-    baseline_r2   = float(r2_score(actual[valid], prev[valid]))
+    baseline_r2 = float(r2_score(actual[valid], prev[valid]))
     return {
         "baseline_rmse": round(baseline_rmse, 4),
-        "baseline_r2":   round(baseline_r2, 4),
-        "n_samples":     int(valid.sum()),
+        "baseline_r2": round(baseline_r2, 4),
+        "n_samples": int(valid.sum()),
     }
 
 

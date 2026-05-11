@@ -20,7 +20,6 @@ SCHEDULE features (always exact — derived from actual game dates/matchups):
     days_into_season            — game number within season for this team
 """
 
-import numpy as np
 import pandas as pd
 
 # ── Feature column list ────────────────────────────────────────────────────────
@@ -51,6 +50,7 @@ GAME_TARGET = "win"
 
 # ── Rolling features ───────────────────────────────────────────────────────────
 
+
 def compute_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Add rolling win% and rest-day features for each team.
@@ -64,9 +64,8 @@ def compute_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.sort_values(["team_id", "game_date"]).copy()
 
     for window in [5, 10]:
-        df[f"team_rolling_win_pct_{window}"] = (
-            df.groupby("team_id")["win"]
-            .transform(lambda x: x.shift(1).rolling(window, min_periods=1).mean())
+        df[f"team_rolling_win_pct_{window}"] = df.groupby("team_id")["win"].transform(
+            lambda x: x.shift(1).rolling(window, min_periods=1).mean()
         )
 
     # Rest days: actual days elapsed since the team's previous game.
@@ -80,9 +79,7 @@ def compute_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     # Sequential game number within this team's season (1 = first game).
-    df["days_into_season"] = (
-        df.groupby(["team_id", "season_year"]).cumcount() + 1
-    )
+    df["days_into_season"] = df.groupby(["team_id", "season_year"]).cumcount() + 1
 
     return df
 
@@ -94,20 +91,29 @@ def add_opponent_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
     Each game_id appears exactly twice in df (once per team). We rename the
     opponent's team_id column to opponent_id and join on that key.
     """
-    opp_src = df[["game_id", "team_id",
-                  "team_rolling_win_pct_5", "team_rolling_win_pct_10",
-                  "rest_days"]].rename(columns={
-        "team_id": "opponent_id",
-        "team_rolling_win_pct_5":  "opp_rolling_win_pct_5",
-        "team_rolling_win_pct_10": "opp_rolling_win_pct_10",
-        "rest_days": "opp_rest_days",
-    })
+    opp_src = df[
+        [
+            "game_id",
+            "team_id",
+            "team_rolling_win_pct_5",
+            "team_rolling_win_pct_10",
+            "rest_days",
+        ]
+    ].rename(
+        columns={
+            "team_id": "opponent_id",
+            "team_rolling_win_pct_5": "opp_rolling_win_pct_5",
+            "team_rolling_win_pct_10": "opp_rolling_win_pct_10",
+            "rest_days": "opp_rest_days",
+        }
+    )
 
     df = df.merge(opp_src, on=["game_id", "opponent_id"], how="left")
     return df
 
 
 # ── Prior-season quality features ─────────────────────────────────────────────
+
 
 def add_prior_season_features(
     df: pd.DataFrame,
@@ -120,36 +126,59 @@ def add_prior_season_features(
     We shift by one year (join_year = season_year + 1) so that a game in season
     2024 gets features from season 2023 — no current-season data is used.
     """
-    prior = season_ml_df[[
-        "team_id", "season_year",
-        "off_rating", "def_rating", "net_rating",
-    ]].copy()
+    prior = season_ml_df[
+        [
+            "team_id",
+            "season_year",
+            "off_rating",
+            "def_rating",
+            "net_rating",
+        ]
+    ].copy()
     prior["join_year"] = prior["season_year"] + 1
 
     # Team side
-    team_prior = prior.rename(columns={
-        "off_rating": "team_prev_off_rating",
-        "def_rating": "team_prev_def_rating",
-        "net_rating": "team_prev_net_rating",
-    })
+    team_prior = prior.rename(
+        columns={
+            "off_rating": "team_prev_off_rating",
+            "def_rating": "team_prev_def_rating",
+            "net_rating": "team_prev_net_rating",
+        }
+    )
     df = df.merge(
-        team_prior[["team_id", "join_year",
-                    "team_prev_off_rating", "team_prev_def_rating", "team_prev_net_rating"]],
+        team_prior[
+            [
+                "team_id",
+                "join_year",
+                "team_prev_off_rating",
+                "team_prev_def_rating",
+                "team_prev_net_rating",
+            ]
+        ],
         left_on=["team_id", "season_year"],
         right_on=["team_id", "join_year"],
         how="left",
     ).drop(columns=["join_year"], errors="ignore")
 
     # Opponent side
-    opp_prior = prior.rename(columns={
-        "team_id": "opponent_id",
-        "off_rating": "opp_prev_off_rating",
-        "def_rating": "opp_prev_def_rating",
-        "net_rating": "opp_prev_net_rating",
-    })
+    opp_prior = prior.rename(
+        columns={
+            "team_id": "opponent_id",
+            "off_rating": "opp_prev_off_rating",
+            "def_rating": "opp_prev_def_rating",
+            "net_rating": "opp_prev_net_rating",
+        }
+    )
     df = df.merge(
-        opp_prior[["opponent_id", "join_year",
-                   "opp_prev_off_rating", "opp_prev_def_rating", "opp_prev_net_rating"]],
+        opp_prior[
+            [
+                "opponent_id",
+                "join_year",
+                "opp_prev_off_rating",
+                "opp_prev_def_rating",
+                "opp_prev_net_rating",
+            ]
+        ],
         left_on=["opponent_id", "season_year"],
         right_on=["opponent_id", "join_year"],
         how="left",
@@ -159,6 +188,7 @@ def add_prior_season_features(
 
 
 # ── Leakage assertion ──────────────────────────────────────────────────────────
+
 
 def _assert_no_leakage(df: pd.DataFrame) -> None:
     """
@@ -199,6 +229,7 @@ def _assert_no_leakage(df: pd.DataFrame) -> None:
 
 
 # ── Top-level orchestrator ─────────────────────────────────────────────────────
+
 
 def transform_games(
     raw_df: pd.DataFrame,

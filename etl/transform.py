@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
-
 # ── Column normalization ──────────────────────────────────────────────────────
+
 
 def normalize_team_stats(df: pd.DataFrame) -> pd.DataFrame:
     """Rename nba_api uppercase columns to clean snake_case."""
@@ -93,11 +93,13 @@ def aggregate_player_features(player_df: pd.DataFrame) -> pd.DataFrame:
 
         team_avg_pie = (
             (qualified["pie"] * qualified["min_share"]).sum()
-            if "pie" in qualified.columns else np.nan
+            if "pie" in qualified.columns
+            else np.nan
         )
         team_avg_age = (
             (qualified["age"] * qualified["min_share"]).sum()
-            if "age" in qualified.columns else np.nan
+            if "age" in qualified.columns
+            else np.nan
         )
 
         # Use full group (not qualified) for injury proxy — a star playing < 10 games
@@ -105,9 +107,11 @@ def aggregate_player_features(player_df: pd.DataFrame) -> pd.DataFrame:
         top8 = group.nlargest(8, "minutes_pg")
         avg_games_played = top8["games_played"].mean() if len(top8) > 0 else np.nan
 
-        star_age_flag = bool(
-            ((group["age"] >= 32) & (group["minutes_pg"] >= 30)).any()
-        ) if "age" in group.columns else False
+        star_age_flag = (
+            bool(((group["age"] >= 32) & (group["minutes_pg"] >= 30)).any())
+            if "age" in group.columns
+            else False
+        )
 
         # Roster quality variance — high std_dev_pie means star-dependent roster
         std_dev_pie = (
@@ -118,20 +122,24 @@ def aggregate_player_features(player_df: pd.DataFrame) -> pd.DataFrame:
 
         # Minutes concentration — fraction of team minutes from top-3 players
         total_team_min = group["minutes_pg"].sum()
-        top_3_minutes_share = float(
-            group.nlargest(3, "minutes_pg")["minutes_pg"].sum() / total_team_min
-        ) if total_team_min > 0 else np.nan
+        top_3_minutes_share = (
+            float(group.nlargest(3, "minutes_pg")["minutes_pg"].sum() / total_team_min)
+            if total_team_min > 0
+            else np.nan
+        )
 
-        rows.append({
-            "team_id": team_id,
-            "season_year": season_year,
-            "team_avg_pie": team_avg_pie,
-            "team_avg_age": team_avg_age,
-            "avg_games_played": avg_games_played,
-            "star_age_flag": star_age_flag,
-            "std_dev_pie": std_dev_pie,
-            "top_3_minutes_share": top_3_minutes_share,
-        })
+        rows.append(
+            {
+                "team_id": team_id,
+                "season_year": season_year,
+                "team_avg_pie": team_avg_pie,
+                "team_avg_age": team_avg_age,
+                "avg_games_played": avg_games_played,
+                "star_age_flag": star_age_flag,
+                "std_dev_pie": std_dev_pie,
+                "top_3_minutes_share": top_3_minutes_share,
+            }
+        )
 
     return pd.DataFrame(rows)
 
@@ -149,36 +157,52 @@ def compute_roster_turnover(player_df: pd.DataFrame) -> pd.DataFrame:
         prior = grouped.get((team_id, season_year - 1))
 
         if prior is None or prior.empty:
-            rows.append({"team_id": team_id, "season_year": season_year, "roster_turnover_pct": np.nan})
+            rows.append(
+                {
+                    "team_id": team_id,
+                    "season_year": season_year,
+                    "roster_turnover_pct": np.nan,
+                }
+            )
             continue
 
         total_min = current["minutes_pg"].sum()
         if total_min == 0:
-            rows.append({"team_id": team_id, "season_year": season_year, "roster_turnover_pct": np.nan})
+            rows.append(
+                {
+                    "team_id": team_id,
+                    "season_year": season_year,
+                    "roster_turnover_pct": np.nan,
+                }
+            )
             continue
 
         prior_ids = set(prior["player_id"].unique())
         new_min = current[~current["player_id"].isin(prior_ids)]["minutes_pg"].sum()
-        rows.append({
-            "team_id": team_id,
-            "season_year": season_year,
-            "roster_turnover_pct": float(new_min / total_min),
-        })
+        rows.append(
+            {
+                "team_id": team_id,
+                "season_year": season_year,
+                "roster_turnover_pct": float(new_min / total_min),
+            }
+        )
 
     return pd.DataFrame(rows)
 
 
 # ── Lag features ──────────────────────────────────────────────────────────────
 
-def compute_strength_of_schedule(game_df: pd.DataFrame, team_df: pd.DataFrame) -> pd.DataFrame:
+
+def compute_strength_of_schedule(
+    game_df: pd.DataFrame, team_df: pd.DataFrame
+) -> pd.DataFrame:
     """
     For each team-season, compute mean net_rating of all opponents faced.
     Captures schedule difficulty — a team in a weak division inflates its record.
     Returns DataFrame with columns: team_id, season_year, sos.
     """
-    ratings = (
-        team_df[["team_id", "season_year", "net_rating"]]
-        .rename(columns={"team_id": "opponent_id", "net_rating": "opp_net_rating"})
+    ratings = team_df[["team_id", "season_year", "net_rating"]].rename(
+        columns={"team_id": "opponent_id", "net_rating": "opp_net_rating"}
     )
     games = (
         game_df[["team_id", "opponent_id", "season_year"]]
@@ -209,12 +233,22 @@ def add_lag_features(df: pd.DataFrame) -> pd.DataFrame:
         df["net_rating_delta"] = df.groupby("team_id")["net_rating"].diff()
 
     lag_cols = [
-        "wins", "wins_normalized",
-        "off_rating", "def_rating", "net_rating",
-        "pts_pg", "ts_pct", "ast_to_ratio", "pace",
-        "oreb_pct", "dreb_pct", "tm_tov_pct",
-        "team_avg_pie", "playoff_team",
-        "std_dev_pie", "top_3_minutes_share",
+        "wins",
+        "wins_normalized",
+        "off_rating",
+        "def_rating",
+        "net_rating",
+        "pts_pg",
+        "ts_pct",
+        "ast_to_ratio",
+        "pace",
+        "oreb_pct",
+        "dreb_pct",
+        "tm_tov_pct",
+        "team_avg_pie",
+        "playoff_team",
+        "std_dev_pie",
+        "top_3_minutes_share",
         "net_rating_delta",
         "sos",
     ]
@@ -225,6 +259,7 @@ def add_lag_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ── ML feature table assembly ─────────────────────────────────────────────────
+
 
 def build_ml_features(
     team_df: pd.DataFrame,
@@ -260,6 +295,7 @@ def build_ml_features(
 
 # ── Prediction mode & inference feature row ───────────────────────────────────
 
+
 def detect_prediction_mode(games_played: int) -> str:
     """Return 'preseason' if fewer than 20 games played, 'mid-season' otherwise."""
     return "preseason" if games_played < 20 else "mid-season"
@@ -292,11 +328,13 @@ def build_feature_row(
         )
 
     prior_rows = ml_features_df[
-        (ml_features_df["team_id"] == team_id) &
-        (ml_features_df["season_year"] == season_year - 1)
+        (ml_features_df["team_id"] == team_id)
+        & (ml_features_df["season_year"] == season_year - 1)
     ]
     if prior_rows.empty:
-        raise ValueError(f"No prior season data for team {team_id}, season {season_year - 1}")
+        raise ValueError(
+            f"No prior season data for team {team_id}, season {season_year - 1}"
+        )
 
     prior = prior_rows.iloc[0].to_dict()
 
@@ -334,9 +372,16 @@ def build_feature_row(
 
     # blendable current-season features
     blend_cols = [
-        "off_rating", "def_rating", "net_rating",
-        "pts_pg", "ts_pct", "ast_to_ratio", "pace",
-        "oreb_pct", "dreb_pct", "tm_tov_pct",
+        "off_rating",
+        "def_rating",
+        "net_rating",
+        "pts_pg",
+        "ts_pct",
+        "ast_to_ratio",
+        "pace",
+        "oreb_pct",
+        "dreb_pct",
+        "tm_tov_pct",
         "team_avg_pie",
     ]
 
@@ -353,12 +398,15 @@ def build_feature_row(
                 base[col] = curr_val * w_curr + prior_val * w_prior
             else:
                 base[col] = prior_val
-        base["avg_games_played"] = current_partial_stats.get("avg_games_played", prior.get("avg_games_played"))
+        base["avg_games_played"] = current_partial_stats.get(
+            "avg_games_played", prior.get("avg_games_played")
+        )
 
     return pd.DataFrame([base])
 
 
 # ── Top-level orchestrator ────────────────────────────────────────────────────
+
 
 def transform_data(raw_data: dict, game_df: pd.DataFrame = None) -> dict:
     """

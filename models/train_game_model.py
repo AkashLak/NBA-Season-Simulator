@@ -40,10 +40,12 @@ GAME_REPORT_PATH = os.path.join(MODEL_DIR, "game_model_report.json")
 
 # ── Data loading ──────────────────────────────────────────────────────────────
 
+
 def load_game_features() -> pd.DataFrame:
     """Load game features — PostgreSQL first, processed/game_features.parquet fallback."""
     try:
         from etl.load import get_engine
+
         engine = get_engine()
         df = pd.read_sql(
             "SELECT * FROM nba_game_features ORDER BY game_date",
@@ -67,6 +69,7 @@ def load_game_features() -> pd.DataFrame:
 
 # ── Candidate definitions ─────────────────────────────────────────────────────
 
+
 def _build_candidates() -> dict:
     """
     Three classification candidates trained on identical TimeSeriesSplit(n_splits=5).
@@ -84,10 +87,12 @@ def _build_candidates() -> dict:
             eval_metric="logloss",
             verbosity=0,
         ),
-        "logistic": Pipeline([
-            ("scaler", StandardScaler()),
-            ("model", LogisticRegression(C=1.0, solver="lbfgs", max_iter=1000)),
-        ]),
+        "logistic": Pipeline(
+            [
+                ("scaler", StandardScaler()),
+                ("model", LogisticRegression(C=1.0, solver="lbfgs", max_iter=1000)),
+            ]
+        ),
         "random_forest": RandomForestClassifier(
             n_estimators=200,
             max_depth=6,
@@ -98,6 +103,7 @@ def _build_candidates() -> dict:
 
 
 # ── Cross-validation ──────────────────────────────────────────────────────────
+
 
 def _cross_validate_candidates(candidates: dict, X_train, y_train) -> dict:
     """
@@ -110,7 +116,9 @@ def _cross_validate_candidates(candidates: dict, X_train, y_train) -> dict:
 
     for name, model in candidates.items():
         cv_out = cross_validate(
-            model, X_train, y_train,
+            model,
+            X_train,
+            y_train,
             cv=tscv,
             scoring=["neg_log_loss", "roc_auc"],
             return_train_score=True,
@@ -121,11 +129,11 @@ def _cross_validate_candidates(candidates: dict, X_train, y_train) -> dict:
         train_logloss = -cv_out["train_neg_log_loss"].mean()
 
         cv_results[name] = {
-            "cv_logloss":       round(float(cv_logloss), 4),
-            "cv_logloss_std":   round(float(cv_out["test_neg_log_loss"].std()), 4),
-            "cv_auc":           round(float(cv_auc), 4),
+            "cv_logloss": round(float(cv_logloss), 4),
+            "cv_logloss_std": round(float(cv_out["test_neg_log_loss"].std()), 4),
+            "cv_auc": round(float(cv_auc), 4),
             "cv_train_logloss": round(float(train_logloss), 4),
-            "overfitting_gap":  round(float(train_logloss - cv_logloss), 4),
+            "overfitting_gap": round(float(train_logloss - cv_logloss), 4),
         }
         print(
             f"  {name:15s}  LogLoss={cv_logloss:.4f} ± {cv_out['test_neg_log_loss'].std():.4f}"
@@ -137,10 +145,13 @@ def _cross_validate_candidates(candidates: dict, X_train, y_train) -> dict:
 
 # ── Winner selection ──────────────────────────────────────────────────────────
 
+
 def _select_winner(
     cv_results: dict,
-    X_train, y_train,
-    X_test, y_test,
+    X_train,
+    y_train,
+    X_test,
+    y_test,
 ) -> tuple:
     """
     Fit all candidates on the full training set, evaluate on holdout.
@@ -165,7 +176,7 @@ def _select_winner(
                 )
                 best_name = name
 
-    print(f"\nFitting all candidates on full training set...")
+    print("\nFitting all candidates on full training set...")
     candidates = _build_candidates()  # fresh (unfitted) instances for final fit
     holdout_metrics = {}
     fitted_models = {}
@@ -177,9 +188,11 @@ def _select_winner(
 
         y_probs = np.clip(model.predict_proba(X_test)[:, 1], 1e-15, 1 - 1e-15)
         holdout_metrics[name] = {
-            "holdout_logloss":  round(float(log_loss(y_test, y_probs)), 4),
-            "holdout_auc":      round(float(roc_auc_score(y_test, y_probs)), 4),
-            "holdout_accuracy": round(float(accuracy_score(y_test, model.predict(X_test))), 4),
+            "holdout_logloss": round(float(log_loss(y_test, y_probs)), 4),
+            "holdout_auc": round(float(roc_auc_score(y_test, y_probs)), 4),
+            "holdout_accuracy": round(
+                float(accuracy_score(y_test, model.predict(X_test))), 4
+            ),
         }
         print(
             f"    LogLoss={holdout_metrics[name]['holdout_logloss']:.4f}"
@@ -193,6 +206,7 @@ def _select_winner(
 
 # ── Baseline comparison ───────────────────────────────────────────────────────
 
+
 def _compute_home_court_baseline(X_test, y_test) -> dict:
     """
     Naive baseline: always predict the home team wins (home_flag = 1).
@@ -203,13 +217,14 @@ def _compute_home_court_baseline(X_test, y_test) -> dict:
     baseline_auc = float(roc_auc_score(y_test, home_probs))
     baseline_acc = float(accuracy_score(y_test, (home_probs >= 0.5).astype(int)))
     return {
-        "baseline_logloss":  round(baseline_logloss, 4),
-        "baseline_auc":      round(baseline_auc, 4),
+        "baseline_logloss": round(baseline_logloss, 4),
+        "baseline_auc": round(baseline_auc, 4),
         "baseline_accuracy": round(baseline_acc, 4),
     }
 
 
 # ── Quality gate ──────────────────────────────────────────────────────────────
+
 
 def _check_game_quality_gate(metrics: dict) -> bool:
     """
@@ -229,6 +244,7 @@ def _check_game_quality_gate(metrics: dict) -> bool:
 
 # ── MLflow logging ────────────────────────────────────────────────────────────
 
+
 def _log_to_mlflow(
     winner_name: str,
     winner_model,
@@ -246,7 +262,9 @@ def _log_to_mlflow(
         mlflow.set_tracking_uri(tracking_uri)
         mlflow.set_experiment("nba-game-predictor")
 
-        with mlflow.start_run(run_name=f"game_{winner_name}_{datetime.now():%Y%m%d_%H%M}"):
+        with mlflow.start_run(
+            run_name=f"game_{winner_name}_{datetime.now():%Y%m%d_%H%M}"
+        ):
             mlflow.set_tag("model_winner", winner_name)
             mlflow.log_param("n_training_samples", n_train)
             mlflow.log_param("n_test_samples", n_test)
@@ -274,7 +292,9 @@ def _log_to_mlflow(
             mlflow.log_metric("baseline_auc", baseline["baseline_auc"])
             mlflow.log_metric(
                 "improvement_over_baseline",
-                round(baseline["baseline_logloss"] - winner_holdout["holdout_logloss"], 4),
+                round(
+                    baseline["baseline_logloss"] - winner_holdout["holdout_logloss"], 4
+                ),
             )
 
             run_id = mlflow.active_run().info.run_id
@@ -287,6 +307,7 @@ def _log_to_mlflow(
 
 
 # ── Main training entry point ─────────────────────────────────────────────────
+
 
 def run_game_training() -> dict:
     """
@@ -323,7 +344,9 @@ def run_game_training() -> dict:
     valid_mask = X.notna().all(axis=1) & y.notna()
     n_dropped = (~valid_mask).sum()
     if n_dropped > 0:
-        print(f"Dropped {n_dropped} rows with NaN features (first season per team, expected)")
+        print(
+            f"Dropped {n_dropped} rows with NaN features (first season per team, expected)"
+        )
     X, y = X[valid_mask].reset_index(drop=True), y[valid_mask].reset_index(drop=True)
     df_valid = df[valid_mask].reset_index(drop=True)
 
@@ -333,7 +356,9 @@ def run_game_training() -> dict:
     train_mask = season_years < cutoff
     X_train, X_test = X[train_mask], X[~train_mask]
     y_train, y_test = y[train_mask], y[~train_mask]
-    print(f"Train: {len(X_train)} games ({season_years[train_mask].min()}–{cutoff - 1})")
+    print(
+        f"Train: {len(X_train)} games ({season_years[train_mask].min()}–{cutoff - 1})"
+    )
     print(f"Holdout: {len(X_test)} games ({cutoff}–{season_years.max()})")
 
     # ── Step 1: Cross-validation ──────────────────────────────────────────────
@@ -383,7 +408,9 @@ def run_game_training() -> dict:
     print("\nGenerating SHAP artifacts...")
     try:
         shap_summary = save_shap_artifacts(
-            winner_model, X_train, X_test,
+            winner_model,
+            X_train,
+            X_test,
             summary_path=os.path.join(PROCESSED_DIR, "game_shap_summary.parquet"),
             values_path=os.path.join(PROCESSED_DIR, "game_shap_values.npy"),
         )
@@ -395,8 +422,13 @@ def run_game_training() -> dict:
 
     # ── Step 6: MLflow ────────────────────────────────────────────────────────
     run_id = _log_to_mlflow(
-        winner_name, winner_model, cv_results, winner_holdout, baseline,
-        n_train=len(X_train), n_test=len(X_test),
+        winner_name,
+        winner_model,
+        cv_results,
+        winner_holdout,
+        baseline,
+        n_train=len(X_train),
+        n_test=len(X_test),
     )
 
     # ── Step 7: Save model ────────────────────────────────────────────────────

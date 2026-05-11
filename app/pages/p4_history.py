@@ -3,15 +3,19 @@ import sys
 
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from app.shared import (
-    load_ml_features, load_models, load_predictions_history, load_season_report,
-    team_selector, no_data_warning,
+    load_ml_features,
+    load_models,
+    load_predictions_history,
+    load_season_report,
+    no_data_warning,
+    team_selector,
 )
 
 st.header("Historical Performance")
@@ -34,13 +38,14 @@ report = load_season_report()
 # ── Predicted vs Actual vs Naive Baseline ─────────────────────────────────────
 st.subheader("Predicted vs Actual Wins")
 
-actuals  = team_df["wins_normalized"].tolist()
-seasons  = team_df["season_year"].tolist()
+actuals = team_df["wins_normalized"].tolist()
+seasons = team_df["season_year"].tolist()
 baseline = team_df["prev_wins_normalized"].tolist()
 
 predicted = []
 if season_model is not None:
     from models.data_prep import FEATURE_COLS
+
     for _, row in team_df.iterrows():
         feat_vals = {c: row.get(c) for c in FEATURE_COLS if c in row.index}
         X = pd.DataFrame([feat_vals])
@@ -53,70 +58,113 @@ else:
     predicted = [None] * len(seasons)
 
 fig = go.Figure()
-fig.add_trace(go.Scatter(
-    x=seasons, y=actuals, name="Actual Wins",
-    mode="lines+markers", line=dict(color="#3498db", width=2),
-))
-fig.add_trace(go.Scatter(
-    x=seasons, y=predicted, name="Model Predicted",
-    mode="lines+markers", line=dict(color="#2ecc71", width=2, dash="dash"),
-    connectgaps=True,
-))
-fig.add_trace(go.Scatter(
-    x=seasons, y=baseline, name="Naive Baseline (prev season)",
-    mode="lines", line=dict(color="#e74c3c", width=1.5, dash="dot"),
-    connectgaps=True,
-))
+fig.add_trace(
+    go.Scatter(
+        x=seasons,
+        y=actuals,
+        name="Actual Wins",
+        mode="lines+markers",
+        line=dict(color="#3498db", width=2),
+    )
+)
+fig.add_trace(
+    go.Scatter(
+        x=seasons,
+        y=predicted,
+        name="Model Predicted",
+        mode="lines+markers",
+        line=dict(color="#2ecc71", width=2, dash="dash"),
+        connectgaps=True,
+    )
+)
+fig.add_trace(
+    go.Scatter(
+        x=seasons,
+        y=baseline,
+        name="Naive Baseline (prev season)",
+        mode="lines",
+        line=dict(color="#e74c3c", width=1.5, dash="dot"),
+        connectgaps=True,
+    )
+)
 fig.update_layout(
-    xaxis_title="Season", yaxis_title="Wins",
-    legend=dict(orientation="h", y=-0.2), height=420,
+    xaxis_title="Season",
+    yaxis_title="Wins",
+    legend=dict(orientation="h", y=-0.2),
+    height=420,
 )
 st.plotly_chart(fig, use_container_width=True)
 
 # ── Accuracy summary ──────────────────────────────────────────────────────────
 if any(p is not None for p in predicted):
-    errs = [(s, abs(a - p)) for s, a, p in zip(seasons, actuals, predicted)
-            if p is not None and a is not None]
+    errs = [
+        (s, abs(a - p))
+        for s, a, p in zip(seasons, actuals, predicted)
+        if p is not None and a is not None
+    ]
     if errs:
         err_df = pd.DataFrame(errs, columns=["Season", "Abs Error (wins)"])
         col_b, col_w = st.columns(2)
         with col_b:
             st.subheader("Best Accuracy Seasons")
-            st.dataframe(err_df.nsmallest(3, "Abs Error (wins)"),
-                         hide_index=True, use_container_width=True)
+            st.dataframe(
+                err_df.nsmallest(3, "Abs Error (wins)"),
+                hide_index=True,
+                use_container_width=True,
+            )
         with col_w:
             st.subheader("Worst Accuracy Seasons")
-            st.dataframe(err_df.nlargest(3, "Abs Error (wins)"),
-                         hide_index=True, use_container_width=True)
+            st.dataframe(
+                err_df.nlargest(3, "Abs Error (wins)"),
+                hide_index=True,
+                use_container_width=True,
+            )
 
 # ── Franchise Trend Analysis ──────────────────────────────────────────────────
 st.divider()
 st.subheader("Franchise Trend Analysis")
 
-tab1, tab2, tab3 = st.tabs(["Efficiency Ratings", "Year-over-Year Change", "Roster Quality"])
+tab1, tab2, tab3 = st.tabs(
+    ["Efficiency Ratings", "Year-over-Year Change", "Roster Quality"]
+)
 
 # ── Tab 1: Net / Off / Def rating over time ───────────────────────────────────
 with tab1:
-    rating_cols = [c for c in ["net_rating", "off_rating", "def_rating"] if c in team_df.columns]
+    rating_cols = [
+        c for c in ["net_rating", "off_rating", "def_rating"] if c in team_df.columns
+    ]
     if not rating_cols:
         st.info("Efficiency rating data not available.")
     else:
         fig_eff = go.Figure()
-        colors = {"net_rating": "#9b59b6", "off_rating": "#e67e22", "def_rating": "#1abc9c"}
-        labels = {"net_rating": "Net Rating", "off_rating": "Off Rating", "def_rating": "Def Rating"}
+        colors = {
+            "net_rating": "#9b59b6",
+            "off_rating": "#e67e22",
+            "def_rating": "#1abc9c",
+        }
+        labels = {
+            "net_rating": "Net Rating",
+            "off_rating": "Off Rating",
+            "def_rating": "Def Rating",
+        }
         for col in rating_cols:
             vals = team_df[col].where(team_df[col].notna()).tolist()
-            fig_eff.add_trace(go.Scatter(
-                x=team_df["season_year"].tolist(), y=vals,
-                name=labels[col],
-                mode="lines+markers",
-                line=dict(color=colors[col], width=2),
-                connectgaps=True,
-            ))
+            fig_eff.add_trace(
+                go.Scatter(
+                    x=team_df["season_year"].tolist(),
+                    y=vals,
+                    name=labels[col],
+                    mode="lines+markers",
+                    line=dict(color=colors[col], width=2),
+                    connectgaps=True,
+                )
+            )
         fig_eff.add_hline(y=0, line_dash="dot", line_color="gray", opacity=0.5)
         fig_eff.update_layout(
-            xaxis_title="Season", yaxis_title="Rating",
-            legend=dict(orientation="h", y=-0.2), height=400,
+            xaxis_title="Season",
+            yaxis_title="Rating",
+            legend=dict(orientation="h", y=-0.2),
+            height=400,
         )
         st.plotly_chart(fig_eff, use_container_width=True)
         st.caption(
@@ -141,18 +189,24 @@ with tab2:
 
         with col_left:
             st.markdown("**Win Total Change vs Prior Season**")
-            bar_colors = ["#2ecc71" if v >= 0 else "#e74c3c" for v in delta_df["win_delta"]]
-            fig_wd = go.Figure(go.Bar(
-                x=delta_df["season_year"].tolist(),
-                y=delta_df["win_delta"].tolist(),
-                marker_color=bar_colors,
-                text=[f"{v:+.0f}" for v in delta_df["win_delta"]],
-                textposition="outside",
-            ))
+            bar_colors = [
+                "#2ecc71" if v >= 0 else "#e74c3c" for v in delta_df["win_delta"]
+            ]
+            fig_wd = go.Figure(
+                go.Bar(
+                    x=delta_df["season_year"].tolist(),
+                    y=delta_df["win_delta"].tolist(),
+                    marker_color=bar_colors,
+                    text=[f"{v:+.0f}" for v in delta_df["win_delta"]],
+                    textposition="outside",
+                )
+            )
             fig_wd.add_hline(y=0, line_color="white", line_width=1)
             fig_wd.update_layout(
-                xaxis_title="Season", yaxis_title="Win Change",
-                height=380, showlegend=False,
+                xaxis_title="Season",
+                yaxis_title="Win Change",
+                height=380,
+                showlegend=False,
             )
             st.plotly_chart(fig_wd, use_container_width=True)
 
@@ -160,24 +214,31 @@ with tab2:
             if has_net:
                 st.markdown("**Net Rating Change vs Prior Season**")
                 nr_delta = delta_df["net_rating_delta"].tolist()
-                nr_colors = ["#2ecc71" if (v is not None and v >= 0) else "#e74c3c" for v in nr_delta]
-                fig_nd = go.Figure(go.Bar(
-                    x=delta_df["season_year"].tolist(),
-                    y=nr_delta,
-                    marker_color=nr_colors,
-                    text=[f"{v:+.1f}" if v is not None else "" for v in nr_delta],
-                    textposition="outside",
-                ))
+                nr_colors = [
+                    "#2ecc71" if (v is not None and v >= 0) else "#e74c3c"
+                    for v in nr_delta
+                ]
+                fig_nd = go.Figure(
+                    go.Bar(
+                        x=delta_df["season_year"].tolist(),
+                        y=nr_delta,
+                        marker_color=nr_colors,
+                        text=[f"{v:+.1f}" if v is not None else "" for v in nr_delta],
+                        textposition="outside",
+                    )
+                )
                 fig_nd.add_hline(y=0, line_color="white", line_width=1)
                 fig_nd.update_layout(
-                    xaxis_title="Season", yaxis_title="Net Rating Change",
-                    height=380, showlegend=False,
+                    xaxis_title="Season",
+                    yaxis_title="Net Rating Change",
+                    height=380,
+                    showlegend=False,
                 )
                 st.plotly_chart(fig_nd, use_container_width=True)
             else:
                 st.info("Net rating data not available.")
 
-        biggest_up   = delta_df.loc[delta_df["win_delta"].idxmax()]
+        biggest_up = delta_df.loc[delta_df["win_delta"].idxmax()]
         biggest_down = delta_df.loc[delta_df["win_delta"].idxmin()]
         st.caption(
             f"Biggest improvement: **{biggest_up['season_year']:.0f}** "
@@ -188,8 +249,11 @@ with tab2:
 
 # ── Tab 3: Roster quality (PIE trend + star dependence) ───────────────────────
 with tab3:
-    pie_cols = [c for c in ["team_avg_pie", "std_dev_pie", "top_3_minutes_share"]
-                if c in team_df.columns]
+    pie_cols = [
+        c
+        for c in ["team_avg_pie", "std_dev_pie", "top_3_minutes_share"]
+        if c in team_df.columns
+    ]
 
     if not pie_cols:
         st.info("Roster quality data not available.")
@@ -201,47 +265,65 @@ with tab3:
                 st.markdown("**Roster Talent (Avg PIE)**")
                 pie_vals = team_df["team_avg_pie"].tolist()
                 rolling_pie = (
-                    team_df["team_avg_pie"]
-                    .rolling(3, min_periods=1)
-                    .mean()
-                    .tolist()
+                    team_df["team_avg_pie"].rolling(3, min_periods=1).mean().tolist()
                 )
                 fig_pie = go.Figure()
-                fig_pie.add_trace(go.Scatter(
-                    x=seasons, y=pie_vals, name="Avg PIE",
-                    mode="lines+markers", line=dict(color="#3498db", width=2),
-                ))
-                fig_pie.add_trace(go.Scatter(
-                    x=seasons, y=rolling_pie, name="3-Year Rolling Avg",
-                    mode="lines", line=dict(color="#f39c12", width=2, dash="dash"),
-                ))
+                fig_pie.add_trace(
+                    go.Scatter(
+                        x=seasons,
+                        y=pie_vals,
+                        name="Avg PIE",
+                        mode="lines+markers",
+                        line=dict(color="#3498db", width=2),
+                    )
+                )
+                fig_pie.add_trace(
+                    go.Scatter(
+                        x=seasons,
+                        y=rolling_pie,
+                        name="3-Year Rolling Avg",
+                        mode="lines",
+                        line=dict(color="#f39c12", width=2, dash="dash"),
+                    )
+                )
                 fig_pie.update_layout(
-                    xaxis_title="Season", yaxis_title="PIE",
-                    legend=dict(orientation="h", y=-0.2), height=360,
+                    xaxis_title="Season",
+                    yaxis_title="PIE",
+                    legend=dict(orientation="h", y=-0.2),
+                    height=360,
                 )
                 st.plotly_chart(fig_pie, use_container_width=True)
-                st.caption("PIE (Player Impact Estimate) — higher = more efficient roster.")
+                st.caption(
+                    "PIE (Player Impact Estimate) — higher = more efficient roster."
+                )
 
         with col_r:
-            if "top_3_minutes_share" in team_df.columns and "std_dev_pie" in team_df.columns:
+            if (
+                "top_3_minutes_share" in team_df.columns
+                and "std_dev_pie" in team_df.columns
+            ):
                 st.markdown("**Star Dependence**")
                 fig_star = go.Figure()
-                fig_star.add_trace(go.Scatter(
-                    x=seasons,
-                    y=team_df["top_3_minutes_share"].tolist(),
-                    name="Top-3 Min Share",
-                    mode="lines+markers",
-                    line=dict(color="#e74c3c", width=2),
-                    yaxis="y",
-                ))
-                fig_star.add_trace(go.Scatter(
-                    x=seasons,
-                    y=team_df["std_dev_pie"].tolist(),
-                    name="Std Dev PIE",
-                    mode="lines+markers",
-                    line=dict(color="#9b59b6", width=2, dash="dash"),
-                    yaxis="y2",
-                ))
+                fig_star.add_trace(
+                    go.Scatter(
+                        x=seasons,
+                        y=team_df["top_3_minutes_share"].tolist(),
+                        name="Top-3 Min Share",
+                        mode="lines+markers",
+                        line=dict(color="#e74c3c", width=2),
+                        yaxis="y",
+                    )
+                )
+                fig_star.add_trace(
+                    go.Scatter(
+                        x=seasons,
+                        y=team_df["std_dev_pie"].tolist(),
+                        name="Std Dev PIE",
+                        mode="lines+markers",
+                        line=dict(color="#9b59b6", width=2, dash="dash"),
+                        yaxis="y2",
+                    )
+                )
                 fig_star.update_layout(
                     xaxis_title="Season",
                     yaxis=dict(title="Top-3 Min Share", tickformat=".0%"),
@@ -258,7 +340,9 @@ with tab3:
 # ── Weekly forecast evolution ──────────────────────────────────────────────────
 st.divider()
 st.subheader("In-Season Forecast Evolution")
-st.caption("How this season's projected win total changed week by week (from Airflow DAG runs).")
+st.caption(
+    "How this season's projected win total changed week by week (from Airflow DAG runs)."
+)
 
 preds_df = load_predictions_history()
 if not preds_df.empty and "team_id" in preds_df.columns:
@@ -267,7 +351,8 @@ if not preds_df.empty and "team_id" in preds_df.columns:
         team_preds["predicted_at"] = pd.to_datetime(team_preds["predicted_at"])
         fig2 = px.line(
             team_preds.sort_values("predicted_at"),
-            x="predicted_at", y="predicted_wins",
+            x="predicted_at",
+            y="predicted_wins",
             color="season_year" if "season_year" in team_preds.columns else None,
             markers=True,
             title="Weekly Predicted Wins Over Season",
@@ -278,4 +363,6 @@ if not preds_df.empty and "team_id" in preds_df.columns:
     else:
         st.info("No weekly predictions yet. Run the Airflow DAG to populate.")
 else:
-    st.info("No prediction history yet. The Airflow DAG appends one row per team each Monday.")
+    st.info(
+        "No prediction history yet. The Airflow DAG appends one row per team each Monday."
+    )

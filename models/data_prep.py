@@ -1,4 +1,5 @@
 import os
+
 import pandas as pd
 from dotenv import load_dotenv
 
@@ -37,21 +38,20 @@ FEATURE_COLS = [
     "prev_sos",
 ]
 
-TARGET_COL = "wins_normalized"      # model trains on 82-game pace wins
-TARGET_RAW_COL = "wins"             # raw wins stored for app display
+TARGET_COL = "wins_normalized"  # model trains on 82-game pace wins
+TARGET_RAW_COL = "wins"  # raw wins stored for app display
 PLAYOFF_TARGET_COL = "playoff_team"
 
 
 def load_from_postgres(table: str = "ml_training_features") -> pd.DataFrame:
     """Load ML features from PostgreSQL (primary data source)."""
     from sqlalchemy import create_engine
+
     url = os.environ.get("DATABASE_URL")
     if not url:
         raise ValueError("DATABASE_URL not set")
     engine = create_engine(url)
-    return pd.read_sql(
-        f"SELECT * FROM {table} ORDER BY team_id, season_year", engine
-    )
+    return pd.read_sql(f"SELECT * FROM {table} ORDER BY team_id, season_year", engine)
 
 
 def load_from_parquet(path: str = "processed/ml_features.parquet") -> pd.DataFrame:
@@ -141,7 +141,10 @@ def chronological_split(
     test_mask = season_years >= cutoff
 
     return (
-        X[train_mask], X[test_mask],
-        y_wins[train_mask], y_wins[test_mask],
-        y_playoff[train_mask], y_playoff[test_mask],
+        X[train_mask],
+        X[test_mask],
+        y_wins[train_mask],
+        y_wins[test_mask],
+        y_playoff[train_mask],
+        y_playoff[test_mask],
     )
