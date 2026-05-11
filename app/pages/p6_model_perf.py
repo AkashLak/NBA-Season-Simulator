@@ -91,19 +91,29 @@ if game_report:
     if game_report.get("baseline_warning"):
         st.warning(game_report["baseline_warning"])
 
-    with st.expander("Cross-validation results (all candidates)"):
-        rows = []
-        for name, m in game_report.get("cv_results", {}).items():
-            rows.append({
-                "Model":           name,
-                "CV LogLoss":      m.get("cv_logloss"),
-                "CV AUC":          m.get("cv_auc"),
-                "CV train LogLoss":m.get("cv_train_logloss"),
-                "Overfitting gap": m.get("overfitting_gap"),
-            })
-        if rows:
+    with st.expander("Cross-validation results (all candidates)", expanded=True):
+        cv_results = game_report.get("cv_results", {})
+        all_holdout = game_report.get("all_holdout_metrics", {})
+        if cv_results:
+            rows = []
+            for name, m in cv_results.items():
+                hm = all_holdout.get(name, {})
+                rows.append({
+                    "Model":            name,
+                    "CV LogLoss":       round(m.get("cv_logloss", 0), 4),
+                    "CV AUC":           round(m.get("cv_auc", 0), 4),
+                    "CV Train LogLoss": round(m.get("cv_train_logloss", 0), 4),
+                    "Overfitting Gap":  round(m.get("overfitting_gap", 0), 4),
+                    "Holdout AUC":      round(hm.get("holdout_auc", 0), 4),
+                    "Holdout LogLoss":  round(hm.get("holdout_logloss", 0), 4),
+                })
             cv_df = pd.DataFrame(rows)
             st.dataframe(cv_df, hide_index=True, use_container_width=True)
+            winner_row = cv_df[cv_df["Model"] == game_report.get("winner", "")]
+            if not winner_row.empty:
+                st.caption(f"Winner: **{game_report.get('winner', '').upper()}** — lowest CV log loss with best holdout AUC.")
+        else:
+            st.info("CV results not available. Retrain the game model.")
 else:
     st.info("Game model not trained yet. Run `python -m models.train_game_model`.")
 
@@ -169,7 +179,10 @@ with col_e1:
     if not runs_s.empty:
         st.dataframe(runs_s, hide_index=True, use_container_width=True)
     else:
-        st.info("MLflow server not reachable or no runs logged yet.")
+        st.caption(
+            "No runs logged yet. Start MLflow and retrain to populate: "
+            "`docker-compose up mlflow -d` then `python -m models.train_model`"
+        )
 
 with col_e2:
     st.caption("**nba-game-predictor** (game model)")
@@ -177,4 +190,7 @@ with col_e2:
     if not runs_g.empty:
         st.dataframe(runs_g, hide_index=True, use_container_width=True)
     else:
-        st.info("MLflow server not reachable or no runs logged yet.")
+        st.caption(
+            "No runs logged yet. Start MLflow and retrain to populate: "
+            "`docker-compose up mlflow -d` then `python -m models.train_game_model`"
+        )
