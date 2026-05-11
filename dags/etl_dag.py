@@ -165,9 +165,10 @@ def _update_predictions(**context):
     load_dotenv()
     engine = get_engine()
 
-    # Predict for the season currently being played
+    # Predict the upcoming season using the latest completed season as prior baseline
     current_season = SEASONS[-1]
-    season_year    = season_to_year(current_season)
+    prior_year     = season_to_year(current_season)   # latest completed season (e.g. 2025)
+    season_year    = prior_year + 1                   # season to predict (e.g. 2026)
 
     game_model = joblib.load("models/game_win_model.pkl")
 

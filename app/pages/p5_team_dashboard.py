@@ -99,12 +99,18 @@ if not player_df.empty:
         roster_sorted = roster.sort_values("minutes_pg", ascending=False) \
             if "minutes_pg" in roster.columns else roster
 
+        display_df = roster_sorted[display_cols].copy()
+        for col in ["minutes_pg", "pie", "pts_pg"]:
+            if col in display_df.columns:
+                display_df[col] = display_df[col].round(1)
+
         def highlight_injury(row):
             gp = row.get("games_played", 82)
-            color = "background-color: #ffe0e0" if pd.notna(gp) and gp < 50 else ""
-            return [color] * len(row)
+            if pd.notna(gp) and gp < 50:
+                return ["background-color: #7f1d1d; color: #fca5a5; font-weight: bold"] * len(row)
+            return [""] * len(row)
 
-        styled = roster_sorted[display_cols].style.apply(highlight_injury, axis=1)
+        styled = display_df.style.apply(highlight_injury, axis=1)
         st.dataframe(styled, use_container_width=True, hide_index=True)
 else:
     no_data_warning("Player stats not populated yet.")
