@@ -150,23 +150,50 @@ st.subheader("MLflow Experiment Runs")
 @st.cache_data(ttl=120)
 def _load_mlflow_runs(experiment_name: str) -> pd.DataFrame:
     try:
-        import mlflow
-        import os
-        tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5001")
-        mlflow.set_tracking_uri(tracking_uri)
-        client = mlflow.tracking.MlflowClient()
-        exp = client.get_experiment_by_name(experiment_name)
-        if exp is None:
+        import requests
+        base = os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5001").rstrip("/")
+        ajax = base.replace("http://", "http://").replace("https://", "https://")
+        api  = f"{ajax}/ajax-api/2.0/mlflow"
+
+        # Find experiment by name
+        resp = requests.post(
+            f"{api}/experiments/search",
+            json={"filter": f"name = '{experiment_name}'", "max_results": 1},
+            timeout=3,
+        )
+        if not resp.ok:
             return pd.DataFrame()
-        runs = client.search_runs([exp.experiment_id], order_by=["start_time DESC"])
+        exps = resp.json().get("experiments", [])
+        if not exps:
+            return pd.DataFrame()
+        exp_id = exps[0]["experiment_id"]
+
+        # Fetch recent runs
+        resp2 = requests.post(
+            f"{api}/runs/search",
+            json={
+                "experiment_ids": [exp_id],
+                "order_by": ["start_time DESC"],
+                "max_results": 20,
+            },
+            timeout=5,
+        )
+        if not resp2.ok:
+            return pd.DataFrame()
+        runs = resp2.json().get("runs", [])
         records = []
-        for r in runs[:20]:
+        for r in runs:
+            info    = r.get("info", {})
+            metrics = {m["key"]: m["value"] for m in r.get("data", {}).get("metrics", [])}
+            params  = {p["key"]: p["value"] for p in r.get("data", {}).get("params", [])}
+            tags    = {t["key"]: t["value"] for t in r.get("data", {}).get("tags", [])}
             records.append({
-                "Date":    pd.to_datetime(r.info.start_time, unit="ms").strftime("%Y-%m-%d %H:%M"),
-                "Model":   r.data.tags.get("model_winner", "?"),
-                "R²/AUC":  r.data.metrics.get("winner_r2") or r.data.metrics.get("winner_auc"),
-                "RMSE/LogLoss": r.data.metrics.get("winner_rmse") or r.data.metrics.get("winner_logloss"),
-                "N train": r.data.params.get("n_training_samples"),
+                "Date":        pd.to_datetime(info.get("start_time", 0), unit="ms").strftime("%Y-%m-%d %H:%M"),
+                "Status":      info.get("status", "?"),
+                "Model":       tags.get("mlflow.runName", tags.get("model_winner", "?")),
+                "R²/AUC":      metrics.get("winner_r2") or metrics.get("winner_auc"),
+                "RMSE/LogLoss":metrics.get("winner_rmse") or metrics.get("winner_logloss"),
+                "N train":     params.get("n_training_samples"),
             })
         return pd.DataFrame(records)
     except Exception:
