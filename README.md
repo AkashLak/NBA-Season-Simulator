@@ -10,7 +10,8 @@ Select any team and season. The app:
 2. **Simulates win probability for every game** using a Logistic Regression classifier trained on 60K+ game rows (AUC = 0.68), then sums expected wins across the full 82-game schedule
 3. **Lets you swap players** on any roster and re-runs the full league simulation to show the win impact
 4. **Explains predictions** with SHAP waterfall charts showing which features drove each game's win probability
-5. **Tracks model health** with CV overfitting gaps, learning curves, and MLflow experiment runs
+5. **Visualizes 25 years of franchise history** with trend charts covering efficiency ratings, year-over-year win deltas, and roster balance over time
+6. **Tracks model health** with CV overfitting gaps, learning curves, and MLflow experiment runs
 
 ## Stack
 
