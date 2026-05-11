@@ -1,6 +1,6 @@
 # NBA Win Predictor & Roster Simulator
 
-A full-stack sports analytics platform that forecasts NBA season win totals, simulates the impact of roster moves, and explains model decisions using SHAP — backed by 25 years of NBA data, two ML models, and a league-wide game simulation engine.
+A full-stack sports analytics platform that forecasts NBA season win totals, simulates the impact of roster moves, and explains model decisions using SHAP. Backed by 25 years of NBA data, two ML models, and a league-wide game simulation engine.
 
 ## What it does
 
@@ -17,12 +17,12 @@ Select any team and season. The app:
 | Layer | Technology |
 |---|---|
 | App | Python + Streamlit (6 pages) |
-| Season model | Random Forest (sklearn) — wins regression |
-| Game model | Logistic Regression (sklearn) — win probability |
+| Season model | Random Forest (sklearn), wins regression |
+| Game model | Logistic Regression (sklearn), win probability |
 | Simulation | Custom league-wide engine (`simulate_season.py`) |
 | Explainability | SHAP waterfall + global feature importance |
-| ETL | nba_api → PostgreSQL + Parquet fallback |
-| Orchestration | Apache Airflow (2 DAGs — weekly ingest + monthly retrain) |
+| ETL | nba_api, PostgreSQL, Parquet fallback |
+| Orchestration | Apache Airflow (2 DAGs: weekly ingest + monthly retrain) |
 | Experiment tracking | MLflow |
 | Database | PostgreSQL 15 (Docker) |
 | Infrastructure | Docker Compose |
@@ -34,7 +34,7 @@ Select any team and season. The app:
 | Season Forecast | Preseason win total + playoff probability for any team/season |
 | Roster Simulator | Swap players, see the win delta from a full league re-simulation |
 | SHAP Explainer | Per-game SHAP waterfall with win probability breakdown |
-| Historical Performance | 25-year trend charts — efficiency ratings, YoY deltas, roster balance |
+| Historical Performance | 25-year trend charts: efficiency ratings, YoY deltas, roster balance |
 | Team & Roster Dashboard | Season metrics, injury risk highlights, roster table |
 | Model Performance | Both model cards, CV results, learning curve, MLflow runs |
 
@@ -129,10 +129,10 @@ app/shared.py ──► all 6 Streamlit pages
 
 **Key design decisions:**
 
-- **Lag-only season features** — all 22 inputs to the season model are knowable before a season tips off (prior-season stats + current roster composition), making forecasts genuinely pre-season.
-- **Full league simulation** — game-level rolling features depend on cross-team games, so you cannot simulate one team in isolation. `simulate_league()` processes the complete schedule, updating all 30 teams simultaneously.
-- **Expected-value simulation** — rather than Monte Carlo sampling, each game contributes `win_prob` to the home team's win total and `1 - win_prob` to the away team's. This gives a smooth, deterministic expected wins figure.
-- **PostgreSQL → Parquet fallback** — all data loaders try the database first and fall back to Parquet snapshots, so the app runs on Streamlit Community Cloud without a database.
+- **Lag-only season features:** all 22 inputs to the season model are knowable before a season tips off (prior-season stats + current roster composition), making forecasts genuinely pre-season.
+- **Full league simulation:** game-level rolling features depend on cross-team games, so you cannot simulate one team in isolation. `simulate_league()` processes the complete schedule, updating all 30 teams simultaneously.
+- **Expected-value simulation:** rather than Monte Carlo sampling, each game contributes `win_prob` to the home team's win total and `1 - win_prob` to the away team's. This gives a smooth, deterministic expected wins figure.
+- **PostgreSQL to Parquet fallback:** all data loaders try the database first and fall back to Parquet snapshots, so the app runs on Streamlit Community Cloud without a database.
 
 ## Running Locally
 
@@ -149,7 +149,7 @@ cp .env.example .env   # fill in DATABASE_URL if needed
 # 2. Start infrastructure
 docker compose up postgres mlflow -d
 
-# 3. Ingest data (25 seasons — ~20 min first run; use --fast for last 5 seasons)
+# 3. Ingest data (use --fast for last 5 seasons, ~7 min; omit for all 25 seasons, ~20 min)
 python -m etl.run_etl --fast
 python -m etl.ingest_games --fast
 
@@ -184,8 +184,8 @@ Open http://localhost:8080 (admin / admin).
 
 | DAG | Schedule | What it does |
 |---|---|---|
-| `nba_data_pipeline` | Weekly, Monday 9am | Ingest current season → transform → load to PostgreSQL → update predictions for all 30 teams |
-| `nba_retrain_pipeline` | Monthly, 1st of month | Check for new seasons → retrain both models → quality gate → write `last_trained_season.json` |
+| `nba_data_pipeline` | Weekly, Monday 9am | Ingest current season, transform, load to PostgreSQL, update predictions for all 30 teams |
+| `nba_retrain_pipeline` | Monthly, 1st of month | Check for new seasons, retrain both models, quality gate, write `last_trained_season.json` |
 
 The retrain pipeline uses a `ShortCircuitOperator` to skip retraining if no new seasons have arrived since the last run.
 
@@ -208,7 +208,7 @@ Copy `.env.example` to `.env`:
 | `nba_player_season_stats` | ~18K | Per-player season stats (PIE, minutes, age) |
 | `ml_training_features` | ~750 | Engineered lag + roster features used for training |
 | `nba_game_features` | ~68K | Per-game rolling features for the game model |
-| `nba_predictions` | — | Historical win forecasts per team/season, appended weekly |
+| `nba_predictions` | growing | Historical win forecasts per team/season, appended weekly |
 
 ## License
 
