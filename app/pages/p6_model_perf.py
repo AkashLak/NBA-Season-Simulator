@@ -182,6 +182,7 @@ with col_e1:
         st.caption(
             "No runs logged yet. Start MLflow and retrain to populate: "
             "`docker-compose up mlflow -d` then `python -m models.train_model`"
+            " — MLflow UI at http://localhost:5001"
         )
 
 with col_e2:
@@ -193,4 +194,5 @@ with col_e2:
         st.caption(
             "No runs logged yet. Start MLflow and retrain to populate: "
             "`docker-compose up mlflow -d` then `python -m models.train_game_model`"
+            " — MLflow UI at http://localhost:5001"
         )
