@@ -25,7 +25,7 @@ def save_to_postgres(df: pd.DataFrame, table_name: str, engine, if_exists: str =
 
 def _get_table_columns(table_name: str, engine) -> set:
     """Return the set of column names that exist in the target PostgreSQL table."""
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         result = conn.execute(text(
             "SELECT column_name FROM information_schema.columns "
             "WHERE table_schema = 'public' AND table_name = :t"
@@ -64,13 +64,12 @@ def upsert_to_postgres(df: pd.DataFrame, table_name: str, engine, conflict_cols:
     else:
         on_conflict_clause = f"ON CONFLICT ({conflict}) DO NOTHING"
 
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         conn.execute(text(f"""
             INSERT INTO "{table_name}" ({cols})
             SELECT {cols} FROM "{temp_table}"
             {on_conflict_clause};
         """))
         conn.execute(text(f'DROP TABLE IF EXISTS "{temp_table}";'))
-        conn.commit()
 
     print(f"Upserted into '{table_name}' (conflict on {conflict_cols})")
