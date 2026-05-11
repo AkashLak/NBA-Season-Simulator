@@ -23,7 +23,7 @@ _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-LAKERS_ID = 1610612747
+DEFAULT_TEAM_ID = 1610612747
 PROCESSED = "processed"
 MODELS_DIR = "models"
 
@@ -227,10 +227,10 @@ def load_learning_curve() -> dict:
 
 
 def team_selector(label: str = "Team", key: str = "team_sel") -> int:
-    """Dropdown of all 30 current franchises sorted alphabetically, Lakers default."""
+    """Dropdown of all 30 current franchises sorted alphabetically, Lakers pre-selected."""
     sorted_teams = sorted(CURRENT_TEAMS.items(), key=lambda x: x[1])
     default_idx = next(
-        (i for i, (tid, _) in enumerate(sorted_teams) if tid == LAKERS_ID), 0
+        (i for i, (tid, _) in enumerate(sorted_teams) if tid == DEFAULT_TEAM_ID), 0
     )
     return st.selectbox(
         label,

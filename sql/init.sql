@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS nba_team_season_stats (
     dreb_pct      FLOAT,
     tm_tov_pct    FLOAT,
     ast_to_ratio  FLOAT,
-    is_lakers     BOOLEAN,
+    is_default_team BOOLEAN,
     created_at    TIMESTAMP DEFAULT NOW(),
     UNIQUE (team_id, season)
 );
@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS ml_training_features (
     sos                  FLOAT,  -- mean opponent net_rating faced this season
     prev_sos             FLOAT,  -- lagged SOS (schedule difficulty last season)
     -- metadata
-    is_lakers            BOOLEAN,
+    is_default_team      BOOLEAN,
     prediction_mode      VARCHAR(15),  -- "preseason" or "mid-season"
     -- targets: raw wins for app display, wins_normalized for model training
     wins                 INTEGER,      -- actual wins (may reflect shortened season)

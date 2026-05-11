@@ -3,7 +3,7 @@ import time
 import pandas as pd
 from nba_api.stats.endpoints import leaguedashplayerstats, leaguedashteamstats
 
-LAKERS_TEAM_ID = 1610612747
+DEFAULT_TEAM_ID = 1610612747
 
 # 1996-97 through 2024-25 — practical floor for reliable nba_api advanced stats
 SEASONS = [f"{y}-{str(y + 1)[2:]}" for y in range(1996, 2025)]
@@ -67,7 +67,7 @@ def fetch_team_season_stats(season: str) -> pd.DataFrame:
     merged = base.merge(advanced[adv_cols], on="TEAM_ID", how="left")
     merged["season"] = season
     merged["season_year"] = season_to_year(season)
-    merged["is_lakers"] = merged["TEAM_ID"] == LAKERS_TEAM_ID
+    merged["is_default_team"] = merged["TEAM_ID"] == DEFAULT_TEAM_ID
     return merged
 
 

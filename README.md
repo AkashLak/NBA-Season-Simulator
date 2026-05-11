@@ -65,7 +65,7 @@ Features are a hybrid of **static** (prior-season net/off/def rating) and **dyna
 ## Project Structure
 
 ```
-LakersSeasonForecast/
+NBA-Season-Simulator/
 ├── app/
 │   ├── app.py                    # Streamlit entry point + navigation
 │   ├── shared.py                 # Cached data loaders, team selector, constants
@@ -141,8 +141,8 @@ app/shared.py ──► all 6 Streamlit pages
 
 ```bash
 # 1. Clone and set up environment
-git clone https://github.com/AkashLak/LakersSeasonForecast.git
-cd LakersSeasonForecast
+git clone https://github.com/AkashLak/NBA-Season-Simulator.git
+cd NBA-Season-Simulator
 python -m venv venv && source venv/bin/activate
 pip install -r requirements-dev.txt
 cp .env.example .env   # fill in DATABASE_URL if needed
