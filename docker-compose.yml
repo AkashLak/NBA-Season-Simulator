@@ -25,15 +25,12 @@ services:
       mlflow server
       --host 0.0.0.0
       --port 5000
-      --backend-store-uri postgresql://lakers:lakers@postgres:5432/lakersdb
+      --backend-store-uri sqlite:////mlflow/mlflow.db
       --default-artifact-root /mlflow/artifacts
     ports:
       - "5001:5000"
     volumes:
-      - mlflow_artifacts:/mlflow/artifacts
-    depends_on:
-      postgres:
-        condition: service_healthy
+      - mlflow_artifacts:/mlflow
     env_file: .env
 
   # ── Airflow metadata database (kept separate from NBA data) ────────────────

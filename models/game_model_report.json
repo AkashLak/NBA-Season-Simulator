@@ -1,6 +1,6 @@
 {
   "winner": "logistic",
-  "trained_at": "2026-05-05T21:36:54.470795",
+  "trained_at": "2026-05-10T21:08:12.957294",
   "feature_cols": [
     "team_rolling_win_pct_5",
     "team_rolling_win_pct_10",
@@ -17,62 +17,62 @@
     "opp_rest_days",
     "days_into_season"
   ],
-  "n_training_games": 55102,
-  "n_test_games": 6288,
+  "n_training_games": 54010,
+  "n_test_games": 7348,
   "holdout_seasons": 3,
   "gate_passed": true,
   "winner_metrics": {
-    "holdout_logloss": 0.6076,
-    "holdout_auc": 0.7287,
-    "holdout_accuracy": 0.6587
+    "holdout_logloss": 0.6437,
+    "holdout_auc": 0.6785,
+    "holdout_accuracy": 0.6248
   },
   "baseline_metrics": {
-    "baseline_logloss": 1.9313,
-    "baseline_auc": 0.5819,
-    "baseline_accuracy": 0.5819
+    "baseline_logloss": 2.0456,
+    "baseline_auc": 0.557,
+    "baseline_accuracy": 0.557
   },
-  "improvement_over_baseline": 1.3237,
+  "improvement_over_baseline": 1.4019,
   "baseline_warning": null,
   "all_holdout_metrics": {
     "xgboost": {
-      "holdout_logloss": 0.6121,
-      "holdout_auc": 0.7224,
-      "holdout_accuracy": 0.6582
+      "holdout_logloss": 0.6494,
+      "holdout_auc": 0.6696,
+      "holdout_accuracy": 0.6241
     },
     "logistic": {
-      "holdout_logloss": 0.6076,
-      "holdout_auc": 0.7287,
-      "holdout_accuracy": 0.6587
+      "holdout_logloss": 0.6437,
+      "holdout_auc": 0.6785,
+      "holdout_accuracy": 0.6248
     },
     "random_forest": {
-      "holdout_logloss": 0.6193,
-      "holdout_auc": 0.7261,
-      "holdout_accuracy": 0.6648
+      "holdout_logloss": 0.6475,
+      "holdout_auc": 0.6746,
+      "holdout_accuracy": 0.6238
     }
   },
   "cv_results": {
     "xgboost": {
-      "cv_logloss": 0.6365,
-      "cv_logloss_std": 0.0198,
-      "cv_auc": 0.6914,
-      "cv_train_logloss": 0.5738,
-      "overfitting_gap": -0.0626
+      "cv_logloss": 0.6332,
+      "cv_logloss_std": 0.0135,
+      "cv_auc": 0.6986,
+      "cv_train_logloss": 0.5689,
+      "overfitting_gap": -0.0643
     },
     "logistic": {
-      "cv_logloss": 0.6239,
-      "cv_logloss_std": 0.014,
-      "cv_auc": 0.707,
-      "cv_train_logloss": 0.6177,
-      "overfitting_gap": -0.0062
+      "cv_logloss": 0.6207,
+      "cv_logloss_std": 0.0079,
+      "cv_auc": 0.7117,
+      "cv_train_logloss": 0.6122,
+      "overfitting_gap": -0.0085
     },
     "random_forest": {
-      "cv_logloss": 0.6306,
-      "cv_logloss_std": 0.0111,
-      "cv_auc": 0.7007,
-      "cv_train_logloss": 0.6101,
-      "overfitting_gap": -0.0206
+      "cv_logloss": 0.6286,
+      "cv_logloss_std": 0.008,
+      "cv_auc": 0.7036,
+      "cv_train_logloss": 0.6046,
+      "overfitting_gap": -0.0239
     }
   },
-  "mlflow_run_id": null,
+  "mlflow_run_id": "f8fca58677be4a5eafccca6493fdaabd",
   "model_path": "/Users/akashlakshmanan/Documents/Akash/Coding_Projects/LakersSeasonForecast/models/game_win_model.pkl"
 }

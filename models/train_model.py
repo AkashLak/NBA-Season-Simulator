@@ -185,8 +185,6 @@ def _log_to_mlflow(winner_name, winner_model, all_results, cv_results,
     """Log training run to MLflow. Prints warning and continues if server is down."""
     try:
         import mlflow
-        import mlflow.sklearn
-        import mlflow.xgboost
 
         tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000")
         mlflow.set_tracking_uri(tracking_uri)
@@ -225,11 +223,6 @@ def _log_to_mlflow(winner_name, winner_model, all_results, cv_results,
                 mlflow.log_metric("baseline_r2",   baseline["baseline_r2"])
                 improvement = baseline["baseline_rmse"] - winner_metrics["rmse"]
                 mlflow.log_metric("improvement_over_baseline", round(improvement, 4))
-
-            if winner_name == "xgboost":
-                mlflow.xgboost.log_model(winner_model, "model")
-            else:
-                mlflow.sklearn.log_model(winner_model, "model")
 
             run_id = mlflow.active_run().info.run_id
             print(f"MLflow run logged: {run_id}")

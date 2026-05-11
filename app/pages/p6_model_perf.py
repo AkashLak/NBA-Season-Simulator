@@ -152,7 +152,7 @@ def _load_mlflow_runs(experiment_name: str) -> pd.DataFrame:
     try:
         import mlflow
         import os
-        tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000")
+        tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5001")
         mlflow.set_tracking_uri(tracking_uri)
         client = mlflow.tracking.MlflowClient()
         exp = client.get_experiment_by_name(experiment_name)

@@ -15,6 +15,9 @@ import joblib
 import numpy as np
 import pandas as pd
 import streamlit as st
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Ensure project root is on the path when pages import this module
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
