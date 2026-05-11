@@ -136,9 +136,12 @@ def _load_all(**context):
     upsert_to_postgres(game_df, "nba_game_features", engine,
                        conflict_cols=["game_id", "team_id"])
 
-    # Refresh Parquet fallback snapshots
-    save_to_parquet(ml_df,   f"{_PROCESSED_DIR}/ml_features.parquet")
-    save_to_parquet(game_df, f"{_PROCESSED_DIR}/game_features.parquet")
+    # Refresh Parquet fallback snapshots from full DB (not just current-season slice)
+    import sqlalchemy
+    full_ml   = pd.read_sql("SELECT * FROM ml_training_features ORDER BY team_id, season_year", engine)
+    full_game = pd.read_sql("SELECT * FROM nba_game_features ORDER BY team_id, game_date", engine)
+    save_to_parquet(full_ml,   f"{_PROCESSED_DIR}/ml_features.parquet")
+    save_to_parquet(full_game, f"{_PROCESSED_DIR}/game_features.parquet")
 
     print("All data loaded to PostgreSQL and Parquet snapshots refreshed")
 
