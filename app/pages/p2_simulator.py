@@ -224,6 +224,14 @@ for idx, row in roster_df.iterrows():
         ):
             new_player = candidates[candidates["player_id"] == swap_choice].iloc[0]
             new_pie = adjusted_pie(new_player, row)
+            log_key = f"swap_log_{team_id}_{selected_season}"
+            st.session_state.setdefault(log_key, []).append({
+                "out": pname,
+                "in": new_player.get("player_name", str(swap_choice)),
+                "old_pie": row.get("pie", 0),
+                "new_pie": new_pie,
+                "minutes": row.get("minutes_pg", 0),
+            })
             st.session_state[state_key].at[idx, "player_id"] = int(
                 new_player["player_id"]
             )
@@ -239,10 +247,23 @@ for idx, row in roster_df.iterrows():
                 ]
             st.rerun()
 
+log_key = f"swap_log_{team_id}_{selected_season}"
 if st.button("Reset Roster"):
-    for k in [state_key, orig_key]:
+    for k in [state_key, orig_key, log_key]:
         st.session_state.pop(k, None)
     st.rerun()
+
+swap_log = st.session_state.get(log_key, [])
+if swap_log:
+    st.subheader("Applied Swaps")
+    for entry in swap_log:
+        pie_dir = "+" if entry["new_pie"] >= entry["old_pie"] else ""
+        st.info(
+            f"**{entry['out']}** → **{entry['in']}** "
+            f"| PIE: {entry['old_pie']:.3f} → {entry['new_pie']:.3f} "
+            f"({pie_dir}{entry['new_pie'] - entry['old_pie']:.3f}) "
+            f"| Minutes unchanged at {entry['minutes']:.0f} min/g"
+        )
 
 # ── Live prediction ────────────────────────────────────────────────────────────
 st.divider()
