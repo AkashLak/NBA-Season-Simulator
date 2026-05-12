@@ -23,7 +23,7 @@ _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-DEFAULT_TEAM_ID = 1610612747
+DEFAULT_TEAM_ID = 1610612752
 PROCESSED = "processed"
 MODELS_DIR = "models"
 
