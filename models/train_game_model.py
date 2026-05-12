@@ -190,9 +190,7 @@ def _select_winner(
         holdout_metrics[name] = {
             "holdout_logloss": round(float(log_loss(y_test, y_probs)), 4),
             "holdout_auc": round(float(roc_auc_score(y_test, y_probs)), 4),
-            "holdout_accuracy": round(
-                float(accuracy_score(y_test, model.predict(X_test))), 4
-            ),
+            "holdout_accuracy": round(float(accuracy_score(y_test, model.predict(X_test))), 4),
         }
         print(
             f"    LogLoss={holdout_metrics[name]['holdout_logloss']:.4f}"
@@ -262,9 +260,7 @@ def _log_to_mlflow(
         mlflow.set_tracking_uri(tracking_uri)
         mlflow.set_experiment("nba-game-predictor")
 
-        with mlflow.start_run(
-            run_name=f"game_{winner_name}_{datetime.now():%Y%m%d_%H%M}"
-        ):
+        with mlflow.start_run(run_name=f"game_{winner_name}_{datetime.now():%Y%m%d_%H%M}"):
             mlflow.set_tag("model_winner", winner_name)
             mlflow.log_param("n_training_samples", n_train)
             mlflow.log_param("n_test_samples", n_test)
@@ -292,9 +288,7 @@ def _log_to_mlflow(
             mlflow.log_metric("baseline_auc", baseline["baseline_auc"])
             mlflow.log_metric(
                 "improvement_over_baseline",
-                round(
-                    baseline["baseline_logloss"] - winner_holdout["holdout_logloss"], 4
-                ),
+                round(baseline["baseline_logloss"] - winner_holdout["holdout_logloss"], 4),
             )
 
             run_id = mlflow.active_run().info.run_id
@@ -344,9 +338,7 @@ def run_game_training() -> dict:
     valid_mask = X.notna().all(axis=1) & y.notna()
     n_dropped = (~valid_mask).sum()
     if n_dropped > 0:
-        print(
-            f"Dropped {n_dropped} rows with NaN features (first season per team, expected)"
-        )
+        print(f"Dropped {n_dropped} rows with NaN features (first season per team, expected)")
     X, y = X[valid_mask].reset_index(drop=True), y[valid_mask].reset_index(drop=True)
     df_valid = df[valid_mask].reset_index(drop=True)
 
@@ -356,9 +348,7 @@ def run_game_training() -> dict:
     train_mask = season_years < cutoff
     X_train, X_test = X[train_mask], X[~train_mask]
     y_train, y_test = y[train_mask], y[~train_mask]
-    print(
-        f"Train: {len(X_train)} games ({season_years[train_mask].min()}–{cutoff - 1})"
-    )
+    print(f"Train: {len(X_train)} games ({season_years[train_mask].min()}–{cutoff - 1})")
     print(f"Holdout: {len(X_test)} games ({cutoff}–{season_years.max()})")
 
     # ── Step 1: Cross-validation ──────────────────────────────────────────────
@@ -473,8 +463,7 @@ def load_game_model():
     """Load the trained game model from disk."""
     if not os.path.exists(GAME_MODEL_PATH):
         raise FileNotFoundError(
-            f"No trained game model at {GAME_MODEL_PATH}. "
-            "Run run_game_training() first."
+            f"No trained game model at {GAME_MODEL_PATH}. " "Run run_game_training() first."
         )
     return joblib.load(GAME_MODEL_PATH)
 

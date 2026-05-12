@@ -155,10 +155,7 @@ def test_opponent_rolling_correctly_joined():
             team2_row["team_rolling_win_pct_10"]
         ):
             assert (
-                abs(
-                    team1_row["opp_rolling_win_pct_10"]
-                    - team2_row["team_rolling_win_pct_10"]
-                )
+                abs(team1_row["opp_rolling_win_pct_10"] - team2_row["team_rolling_win_pct_10"])
                 < 1e-9
             ), "Opponent rolling features not correctly mirrored"
 

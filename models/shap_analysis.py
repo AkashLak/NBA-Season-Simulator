@@ -41,9 +41,7 @@ def _get_explainer(model, X_background: pd.DataFrame):
     return shap.LinearExplainer(raw_model, X_background)
 
 
-def get_prediction_explanation(
-    model, X_row: pd.DataFrame, X_background: pd.DataFrame
-) -> dict:
+def get_prediction_explanation(model, X_row: pd.DataFrame, X_background: pd.DataFrame) -> dict:
     """
     Explain a single prediction row using SHAP.
 
@@ -67,9 +65,7 @@ def get_prediction_explanation(
         else explainer.expected_value
     )
 
-    contributions = {
-        col: round(float(val), 4) for col, val in zip(X_row.columns, values)
-    }
+    contributions = {col: round(float(val), 4) for col, val in zip(X_row.columns, values)}
 
     return {
         "base_value": round(base_value, 4),

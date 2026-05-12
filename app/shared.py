@@ -229,9 +229,7 @@ def load_learning_curve() -> dict:
 def team_selector(label: str = "Team", key: str = "team_sel") -> int:
     """Dropdown of all 30 current franchises sorted alphabetically, Lakers pre-selected."""
     sorted_teams = sorted(CURRENT_TEAMS.items(), key=lambda x: x[1])
-    default_idx = next(
-        (i for i, (tid, _) in enumerate(sorted_teams) if tid == DEFAULT_TEAM_ID), 0
-    )
+    default_idx = next((i for i, (tid, _) in enumerate(sorted_teams) if tid == DEFAULT_TEAM_ID), 0)
     return st.selectbox(
         label,
         options=[tid for tid, _ in sorted_teams],
@@ -241,9 +239,7 @@ def team_selector(label: str = "Team", key: str = "team_sel") -> int:
     )
 
 
-def season_selector(
-    label: str = "Season", key: str = "season_sel", df: pd.DataFrame = None
-) -> int:
+def season_selector(label: str = "Season", key: str = "season_sel", df: pd.DataFrame = None) -> int:
     """Dropdown of available seasons, most recent selected by default."""
     if df is None:
         df = load_ml_features()

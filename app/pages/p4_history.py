@@ -124,15 +124,11 @@ if any(p is not None for p in predicted):
 st.divider()
 st.subheader("Franchise Trend Analysis")
 
-tab1, tab2, tab3 = st.tabs(
-    ["Efficiency Ratings", "Year-over-Year Change", "Roster Quality"]
-)
+tab1, tab2, tab3 = st.tabs(["Efficiency Ratings", "Year-over-Year Change", "Roster Quality"])
 
 # ── Tab 1: Net / Off / Def rating over time ───────────────────────────────────
 with tab1:
-    rating_cols = [
-        c for c in ["net_rating", "off_rating", "def_rating"] if c in team_df.columns
-    ]
+    rating_cols = [c for c in ["net_rating", "off_rating", "def_rating"] if c in team_df.columns]
     if not rating_cols:
         st.info("Efficiency rating data not available.")
     else:
@@ -189,9 +185,7 @@ with tab2:
 
         with col_left:
             st.markdown("**Win Total Change vs Prior Season**")
-            bar_colors = [
-                "#2ecc71" if v >= 0 else "#e74c3c" for v in delta_df["win_delta"]
-            ]
+            bar_colors = ["#2ecc71" if v >= 0 else "#e74c3c" for v in delta_df["win_delta"]]
             fig_wd = go.Figure(
                 go.Bar(
                     x=delta_df["season_year"].tolist(),
@@ -215,8 +209,7 @@ with tab2:
                 st.markdown("**Net Rating Change vs Prior Season**")
                 nr_delta = delta_df["net_rating_delta"].tolist()
                 nr_colors = [
-                    "#2ecc71" if (v is not None and v >= 0) else "#e74c3c"
-                    for v in nr_delta
+                    "#2ecc71" if (v is not None and v >= 0) else "#e74c3c" for v in nr_delta
                 ]
                 fig_nd = go.Figure(
                     go.Bar(
@@ -250,9 +243,7 @@ with tab2:
 # ── Tab 3: Roster quality (PIE trend + star dependence) ───────────────────────
 with tab3:
     pie_cols = [
-        c
-        for c in ["team_avg_pie", "std_dev_pie", "top_3_minutes_share"]
-        if c in team_df.columns
+        c for c in ["team_avg_pie", "std_dev_pie", "top_3_minutes_share"] if c in team_df.columns
     ]
 
     if not pie_cols:
@@ -264,9 +255,7 @@ with tab3:
             if "team_avg_pie" in team_df.columns:
                 st.markdown("**Roster Talent (Avg PIE)**")
                 pie_vals = team_df["team_avg_pie"].tolist()
-                rolling_pie = (
-                    team_df["team_avg_pie"].rolling(3, min_periods=1).mean().tolist()
-                )
+                rolling_pie = team_df["team_avg_pie"].rolling(3, min_periods=1).mean().tolist()
                 fig_pie = go.Figure()
                 fig_pie.add_trace(
                     go.Scatter(
@@ -293,15 +282,10 @@ with tab3:
                     height=360,
                 )
                 st.plotly_chart(fig_pie, use_container_width=True)
-                st.caption(
-                    "PIE (Player Impact Estimate) — higher = more efficient roster."
-                )
+                st.caption("PIE (Player Impact Estimate) — higher = more efficient roster.")
 
         with col_r:
-            if (
-                "top_3_minutes_share" in team_df.columns
-                and "std_dev_pie" in team_df.columns
-            ):
+            if "top_3_minutes_share" in team_df.columns and "std_dev_pie" in team_df.columns:
                 st.markdown("**Star Dependence**")
                 fig_star = go.Figure()
                 fig_star.add_trace(
@@ -340,9 +324,7 @@ with tab3:
 # ── Weekly forecast evolution ──────────────────────────────────────────────────
 st.divider()
 st.subheader("In-Season Forecast Evolution")
-st.caption(
-    "How this season's projected win total changed week by week (from Airflow DAG runs)."
-)
+st.caption("How this season's projected win total changed week by week (from Airflow DAG runs).")
 
 preds_df = load_predictions_history()
 if not preds_df.empty and "team_id" in preds_df.columns:
@@ -363,6 +345,4 @@ if not preds_df.empty and "team_id" in preds_df.columns:
     else:
         st.info("No weekly predictions yet. Run the Airflow DAG to populate.")
 else:
-    st.info(
-        "No prediction history yet. The Airflow DAG appends one row per team each Monday."
-    )
+    st.info("No prediction history yet. The Airflow DAG appends one row per team each Monday.")

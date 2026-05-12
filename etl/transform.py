@@ -193,9 +193,7 @@ def compute_roster_turnover(player_df: pd.DataFrame) -> pd.DataFrame:
 # ── Lag features ──────────────────────────────────────────────────────────────
 
 
-def compute_strength_of_schedule(
-    game_df: pd.DataFrame, team_df: pd.DataFrame
-) -> pd.DataFrame:
+def compute_strength_of_schedule(game_df: pd.DataFrame, team_df: pd.DataFrame) -> pd.DataFrame:
     """
     For each team-season, compute mean net_rating of all opponents faced.
     Captures schedule difficulty — a team in a weak division inflates its record.
@@ -328,13 +326,10 @@ def build_feature_row(
         )
 
     prior_rows = ml_features_df[
-        (ml_features_df["team_id"] == team_id)
-        & (ml_features_df["season_year"] == season_year - 1)
+        (ml_features_df["team_id"] == team_id) & (ml_features_df["season_year"] == season_year - 1)
     ]
     if prior_rows.empty:
-        raise ValueError(
-            f"No prior season data for team {team_id}, season {season_year - 1}"
-        )
+        raise ValueError(f"No prior season data for team {team_id}, season {season_year - 1}")
 
     prior = prior_rows.iloc[0].to_dict()
 

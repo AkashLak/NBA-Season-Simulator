@@ -28,9 +28,7 @@ if season_report:
     col1.metric("Winner", winner.upper())
     col2.metric("Test R²", f"{res.get('r2', 0):.4f}")
     col3.metric("Test RMSE", f"{res.get('rmse', 0):.2f} wins")
-    col4.metric(
-        "vs Baseline", f"{improv:+.2f} wins", delta=improv, delta_color="normal"
-    )
+    col4.metric("vs Baseline", f"{improv:+.2f} wins", delta=improv, delta_color="normal")
 
     if season_report.get("baseline_warning"):
         st.warning(season_report["baseline_warning"])
@@ -54,9 +52,7 @@ if season_report:
             st.dataframe(cv_df, hide_index=True, use_container_width=True)
             for _, r in cv_df.iterrows():
                 if r.get("Overfitting gap") and r["Overfitting gap"] > 0.15:
-                    st.warning(
-                        f"{r['Model']}: overfitting gap {r['Overfitting gap']:.3f} > 0.15"
-                    )
+                    st.warning(f"{r['Model']}: overfitting gap {r['Overfitting gap']:.3f} > 0.15")
 
     # Baseline breakdown
     if base:
@@ -92,9 +88,7 @@ if game_report:
         help="Home-court-always baseline",
     )
     col_b2.metric("Baseline AUC", f"{g_base.get('baseline_auc', 0):.4f}")
-    col_b3.metric(
-        "Log Loss Improvement", f"{g_improv:+.4f}", delta=g_improv, delta_color="normal"
-    )
+    col_b3.metric("Log Loss Improvement", f"{g_improv:+.4f}", delta=g_improv, delta_color="normal")
 
     if game_report.get("baseline_warning"):
         st.warning(game_report["baseline_warning"])
@@ -171,9 +165,7 @@ def _load_mlflow_runs(experiment_name: str) -> pd.DataFrame:
     try:
         import requests
 
-        base = os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5001").rstrip(
-            "/"
-        )
+        base = os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5001").rstrip("/")
         ajax = base.replace("http://", "http://").replace("https://", "https://")
         api = f"{ajax}/ajax-api/2.0/mlflow"
 
@@ -206,21 +198,18 @@ def _load_mlflow_runs(experiment_name: str) -> pd.DataFrame:
         records = []
         for r in runs:
             info = r.get("info", {})
-            metrics = {
-                m["key"]: m["value"] for m in r.get("data", {}).get("metrics", [])
-            }
+            metrics = {m["key"]: m["value"] for m in r.get("data", {}).get("metrics", [])}
             params = {p["key"]: p["value"] for p in r.get("data", {}).get("params", [])}
             tags = {t["key"]: t["value"] for t in r.get("data", {}).get("tags", [])}
             records.append(
                 {
-                    "Date": pd.to_datetime(
-                        info.get("start_time", 0), unit="ms"
-                    ).strftime("%Y-%m-%d %H:%M"),
+                    "Date": pd.to_datetime(info.get("start_time", 0), unit="ms").strftime(
+                        "%Y-%m-%d %H:%M"
+                    ),
                     "Status": info.get("status", "?"),
                     "Model": tags.get("mlflow.runName", tags.get("model_winner", "?")),
                     "R²/AUC": metrics.get("winner_r2") or metrics.get("winner_auc"),
-                    "RMSE/LogLoss": metrics.get("winner_rmse")
-                    or metrics.get("winner_logloss"),
+                    "RMSE/LogLoss": metrics.get("winner_rmse") or metrics.get("winner_logloss"),
                     "N train": params.get("n_training_samples"),
                 }
             )

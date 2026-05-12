@@ -103,9 +103,7 @@ def fetch_player_season_stats(season: str) -> pd.DataFrame:
         if c in advanced.columns
     ]
 
-    merged = base[base_cols].merge(
-        advanced[adv_cols], on=["PLAYER_ID", "TEAM_ID"], how="left"
-    )
+    merged = base[base_cols].merge(advanced[adv_cols], on=["PLAYER_ID", "TEAM_ID"], how="left")
     merged["season_year"] = season_to_year(season)
     return merged
 
@@ -138,15 +136,9 @@ def ingest_data(seasons: list = None) -> dict:
         except Exception as e:
             print(f"  Warning: player stats failed for {season}: {e}")
 
-    team_stats = (
-        pd.concat(all_team_stats, ignore_index=True)
-        if all_team_stats
-        else pd.DataFrame()
-    )
+    team_stats = pd.concat(all_team_stats, ignore_index=True) if all_team_stats else pd.DataFrame()
     player_stats = (
-        pd.concat(all_player_stats, ignore_index=True)
-        if all_player_stats
-        else pd.DataFrame()
+        pd.concat(all_player_stats, ignore_index=True) if all_player_stats else pd.DataFrame()
     )
 
     print(

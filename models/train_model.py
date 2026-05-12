@@ -15,12 +15,7 @@ from sklearn.preprocessing import StandardScaler
 from xgboost import XGBClassifier
 
 from models.data_prep import chronological_split, load_data, prepare_features
-from models.evaluate import (
-    check_quality_gate,
-    compute_baseline,
-    evaluate_model,
-    write_eval_report,
-)
+from models.evaluate import check_quality_gate, compute_baseline, evaluate_model, write_eval_report
 from models.shap_analysis import save_shap_artifacts
 
 load_dotenv()
@@ -169,11 +164,8 @@ def _select_winner(candidates: dict, X_train, y_train, X_test, y_test) -> tuple:
                 )
                 best_name, best_metrics = name, metrics
 
-    reason = (
-        f"{best_name} had lowest test RMSE ({best_metrics['rmse']:.3f} wins). "
-        + ", ".join(
-            f"{n}: RMSE={r['rmse']:.3f}" for n, r in results.items() if n != best_name
-        )
+    reason = f"{best_name} had lowest test RMSE ({best_metrics['rmse']:.3f} wins). " + ", ".join(
+        f"{n}: RMSE={r['rmse']:.3f}" for n, r in results.items() if n != best_name
     )
     return best_name, fitted[best_name], results, reason
 
@@ -210,9 +202,7 @@ def _log_to_mlflow(
         mlflow.set_tracking_uri(tracking_uri)
         mlflow.set_experiment("nba-win-predictor")
 
-        with mlflow.start_run(
-            run_name=f"train_{winner_name}_{datetime.now():%Y%m%d_%H%M}"
-        ):
+        with mlflow.start_run(run_name=f"train_{winner_name}_{datetime.now():%Y%m%d_%H%M}"):
             mlflow.set_tag("model_winner", winner_name)
             mlflow.log_param("n_training_samples", n_train)
             mlflow.log_param("n_test_samples", n_test)
@@ -286,8 +276,8 @@ def run_training() -> dict:
     y_wins = y_wins.iloc[sort_order]
     y_playoff = y_playoff.iloc[sort_order]
 
-    X_train, X_test, y_train, y_test, y_playoff_train, y_playoff_test = (
-        chronological_split(X, y_wins, y_playoff, df)
+    X_train, X_test, y_train, y_test, y_playoff_train, y_playoff_test = chronological_split(
+        X, y_wins, y_playoff, df
     )
     print(f"Train: {len(X_train)} rows  |  Holdout: {len(X_test)} rows")
 
@@ -310,12 +300,8 @@ def run_training() -> dict:
     print("\nComputing naive baseline (predict last season's wins)...")
     baseline = compute_baseline(df, X_test)
     improvement = baseline["baseline_rmse"] - winner_metrics["rmse"]
-    print(
-        f"  Baseline RMSE={baseline['baseline_rmse']:.4f}  R²={baseline['baseline_r2']:.4f}"
-    )
-    print(
-        f"  Model    RMSE={winner_metrics['rmse']:.4f}  improvement={improvement:+.4f} wins"
-    )
+    print(f"  Baseline RMSE={baseline['baseline_rmse']:.4f}  R²={baseline['baseline_r2']:.4f}")
+    print(f"  Model    RMSE={winner_metrics['rmse']:.4f}  improvement={improvement:+.4f} wins")
 
     baseline_warning = None
     if winner_metrics["rmse"] >= baseline["baseline_rmse"]:
@@ -381,8 +367,7 @@ def run_training() -> dict:
         "n_test_samples": int(len(X_test)),
         "feature_cols": list(X.columns),
         "results": {
-            name: {**metrics, **cv_results.get(name, {})}
-            for name, metrics in all_results.items()
+            name: {**metrics, **cv_results.get(name, {})} for name, metrics in all_results.items()
         },
         "selection_reason": reason,
         "baseline": baseline,
@@ -403,8 +388,7 @@ def run_training() -> dict:
     print(f"Training complete. Winner: {winner_name.upper()}")
     print(f"  R²={winner_metrics['r2']:.4f}  RMSE={winner_metrics['rmse']:.4f}")
     print(
-        f"  Baseline RMSE={baseline['baseline_rmse']:.4f}  "
-        f"Improvement={improvement:+.4f} wins"
+        f"  Baseline RMSE={baseline['baseline_rmse']:.4f}  " f"Improvement={improvement:+.4f} wins"
     )
 
     return report
@@ -413,13 +397,9 @@ def run_training() -> dict:
 def load_models() -> tuple:
     """Load the saved wins regressor and playoff classifier from disk."""
     if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(
-            f"No trained model at {MODEL_PATH}. Run run_training() first."
-        )
+        raise FileNotFoundError(f"No trained model at {MODEL_PATH}. Run run_training() first.")
     wins_model = joblib.load(MODEL_PATH)
-    playoff_model = (
-        joblib.load(PLAYOFF_MODEL_PATH) if os.path.exists(PLAYOFF_MODEL_PATH) else None
-    )
+    playoff_model = joblib.load(PLAYOFF_MODEL_PATH) if os.path.exists(PLAYOFF_MODEL_PATH) else None
     return wins_model, playoff_model
 
 

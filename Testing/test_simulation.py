@@ -42,10 +42,7 @@ def _make_schedule(n_games=4, teams=(1, 2)):
 
 
 def _make_prior_lookup(*team_ids):
-    return {
-        tid: {"net_rating": 0.0, "off_rating": 113.0, "def_rating": 113.0}
-        for tid in team_ids
-    }
+    return {tid: {"net_rating": 0.0, "off_rating": 113.0, "def_rating": 113.0} for tid in team_ids}
 
 
 def _patch_sim(monkeypatch, schedule, prior_lookup):
@@ -104,46 +101,30 @@ def test_rest_days_capped_at_7():
 
 
 def test_build_feature_row_has_all_columns():
-    home = _init_team_state(
-        1, {"net_rating": 3.0, "off_rating": 115.0, "def_rating": 112.0}
-    )
-    away = _init_team_state(
-        2, {"net_rating": -1.0, "off_rating": 110.0, "def_rating": 111.0}
-    )
+    home = _init_team_state(1, {"net_rating": 3.0, "off_rating": 115.0, "def_rating": 112.0})
+    away = _init_team_state(2, {"net_rating": -1.0, "off_rating": 110.0, "def_rating": 111.0})
     row = _build_feature_row(home, away, "2024-10-01")
     assert set(row.keys()) == set(GAME_FEATURE_COLS)
 
 
 def test_build_feature_row_home_flag_is_1():
-    home = _init_team_state(
-        1, {"net_rating": 0.0, "off_rating": 113.0, "def_rating": 113.0}
-    )
-    away = _init_team_state(
-        2, {"net_rating": 0.0, "off_rating": 113.0, "def_rating": 113.0}
-    )
+    home = _init_team_state(1, {"net_rating": 0.0, "off_rating": 113.0, "def_rating": 113.0})
+    away = _init_team_state(2, {"net_rating": 0.0, "off_rating": 113.0, "def_rating": 113.0})
     row = _build_feature_row(home, away, "2024-10-01")
     assert row["home_flag"] == 1
 
 
 def test_build_feature_row_first_game_rest_7():
-    home = _init_team_state(
-        1, {"net_rating": 0.0, "off_rating": 113.0, "def_rating": 113.0}
-    )
-    away = _init_team_state(
-        2, {"net_rating": 0.0, "off_rating": 113.0, "def_rating": 113.0}
-    )
+    home = _init_team_state(1, {"net_rating": 0.0, "off_rating": 113.0, "def_rating": 113.0})
+    away = _init_team_state(2, {"net_rating": 0.0, "off_rating": 113.0, "def_rating": 113.0})
     row = _build_feature_row(home, away, "2024-10-01")
     assert row["rest_days"] == 7
     assert row["opp_rest_days"] == 7
 
 
 def test_build_feature_row_wrong_keys_raises():
-    home = _init_team_state(
-        1, {"net_rating": 0.0, "off_rating": 113.0, "def_rating": 113.0}
-    )
-    away = _init_team_state(
-        2, {"net_rating": 0.0, "off_rating": 113.0, "def_rating": 113.0}
-    )
+    home = _init_team_state(1, {"net_rating": 0.0, "off_rating": 113.0, "def_rating": 113.0})
+    away = _init_team_state(2, {"net_rating": 0.0, "off_rating": 113.0, "def_rating": 113.0})
     # Monkeypatch GAME_FEATURE_COLS temporarily to trigger mismatch
     import models.simulate_season as sim_mod
 
@@ -227,9 +208,7 @@ def test_team_quality_override_changes_result(monkeypatch):
 
     # With a large override the constant model ignores it,
     # so test that override flows through without error
-    override_results = simulate_league(
-        2025, model, team_overrides={1: {"prev_net_rating": 15.0}}
-    )
+    override_results = simulate_league(2025, model, team_overrides={1: {"prev_net_rating": 15.0}})
     assert 1 in override_results
     assert abs(override_results[1]["expected_wins"] - base_wins) < 0.01
 

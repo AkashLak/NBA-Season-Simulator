@@ -85,11 +85,7 @@ if playoff_model is not None and season_model is not None and season_pred is not
 # ── Display ────────────────────────────────────────────────────────────────────
 st.divider()
 
-rmse = (
-    season_report.get("results", {})
-    .get(season_report.get("winner", ""), {})
-    .get("rmse", 5.0)
-)
+rmse = season_report.get("results", {}).get(season_report.get("winner", ""), {}).get("rmse", 5.0)
 game_logloss = game_report.get("winner_metrics", {}).get("holdout_logloss")
 
 col1, col2 = st.columns(2)

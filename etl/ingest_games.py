@@ -64,9 +64,7 @@ def fetch_game_logs(season: str) -> pd.DataFrame:
     # Drop any rows where opponent could not be resolved (rare: incomplete data)
     missing_opp = logs["opponent_id"].isna().sum()
     if missing_opp > 0:
-        print(
-            f"  Warning: {missing_opp} rows missing opponent_id for {season}, dropping"
-        )
+        print(f"  Warning: {missing_opp} rows missing opponent_id for {season}, dropping")
         logs = logs.dropna(subset=["opponent_id"])
 
     logs["opponent_id"] = logs["opponent_id"].astype(int)
@@ -122,9 +120,7 @@ def ingest_games(seasons: list = None) -> pd.DataFrame:
         return pd.DataFrame()
 
     result = pd.concat(frames, ignore_index=True)
-    print(
-        f"Game ingestion complete: {len(result)} total rows across {len(seasons)} seasons"
-    )
+    print(f"Game ingestion complete: {len(result)} total rows across {len(seasons)} seasons")
     return result
 
 

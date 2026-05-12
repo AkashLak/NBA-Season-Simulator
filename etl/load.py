@@ -18,9 +18,7 @@ def save_to_parquet(df: pd.DataFrame, path: str):
     print(f"Saved {len(df)} rows to {path}")
 
 
-def save_to_postgres(
-    df: pd.DataFrame, table_name: str, engine, if_exists: str = "replace"
-):
+def save_to_postgres(df: pd.DataFrame, table_name: str, engine, if_exists: str = "replace"):
     """Write DataFrame to a PostgreSQL table (full replace — use for initial loads)."""
     df.to_sql(table_name, engine, if_exists=if_exists, index=False)
     print(f"Saved {len(df)} rows to postgres table '{table_name}'")
@@ -71,11 +69,15 @@ def upsert_to_postgres(df: pd.DataFrame, table_name: str, engine, conflict_cols:
         on_conflict_clause = f"ON CONFLICT ({conflict}) DO NOTHING"
 
     with engine.begin() as conn:
-        conn.execute(text(f"""
+        conn.execute(
+            text(
+                f"""
             INSERT INTO "{table_name}" ({cols})
             SELECT {cols} FROM "{temp_table}"
             {on_conflict_clause};
-        """))
+        """
+            )
+        )
         conn.execute(text(f'DROP TABLE IF EXISTS "{temp_table}";'))
 
     print(f"Upserted into '{table_name}' (conflict on {conflict_cols})")

@@ -17,21 +17,15 @@ def test_quality_gate_passes():
 
 
 def test_quality_gate_fails_low_r2():
-    assert not check_quality_gate(
-        {"r2": 0.60, "rmse": 5.5, "mae": 4.0, "n_samples": 90}
-    )
+    assert not check_quality_gate({"r2": 0.60, "rmse": 5.5, "mae": 4.0, "n_samples": 90})
 
 
 def test_quality_gate_fails_high_rmse():
-    assert not check_quality_gate(
-        {"r2": 0.80, "rmse": 9.0, "mae": 5.0, "n_samples": 90}
-    )
+    assert not check_quality_gate({"r2": 0.80, "rmse": 9.0, "mae": 5.0, "n_samples": 90})
 
 
 def test_quality_gate_fails_both():
-    assert not check_quality_gate(
-        {"r2": 0.50, "rmse": 8.0, "mae": 6.0, "n_samples": 90}
-    )
+    assert not check_quality_gate({"r2": 0.50, "rmse": 8.0, "mae": 6.0, "n_samples": 90})
 
 
 # ── Baseline comparison ────────────────────────────────────────────────────────
@@ -92,9 +86,7 @@ def test_chronological_split_respects_time_order():
     y_wins = pd.Series(range(n), index=df.index, dtype=float)
     y_play = pd.Series([0] * n, index=df.index)
 
-    X_tr, X_te, y_tr, y_te, _, _ = chronological_split(
-        X, y_wins, y_play, df, holdout_seasons=1
-    )
+    X_tr, X_te, y_tr, y_te, _, _ = chronological_split(X, y_wins, y_play, df, holdout_seasons=1)
 
     train_seasons = df.loc[X_tr.index, "season_year"]
     test_seasons = df.loc[X_te.index, "season_year"]
@@ -166,9 +158,7 @@ def season_model():
 def game_model():
     path = "models/game_win_model.pkl"
     if not os.path.exists(path):
-        pytest.skip(
-            "Game model not trained yet — run python -m models.train_game_model"
-        )
+        pytest.skip("Game model not trained yet — run python -m models.train_game_model")
     import joblib
 
     return joblib.load(path)

@@ -40,12 +40,8 @@ def get_row(df, team_id, season_year):
     return rows.iloc[0] if not rows.empty else None
 
 
-current_ts = (
-    get_row(team_stats, team_id, selected_season) if not team_stats.empty else None
-)
-prior_ts = (
-    get_row(team_stats, team_id, selected_season - 1) if not team_stats.empty else None
-)
+current_ts = get_row(team_stats, team_id, selected_season) if not team_stats.empty else None
+prior_ts = get_row(team_stats, team_id, selected_season - 1) if not team_stats.empty else None
 
 
 def delta(cur_row, pri_row, col):
@@ -146,9 +142,7 @@ if not player_df.empty:
         def highlight_injury(row):
             gp = row.get("games_played", 82)
             if pd.notna(gp) and gp < 50:
-                return [
-                    "background-color: #7f1d1d; color: #fca5a5; font-weight: bold"
-                ] * len(row)
+                return ["background-color: #7f1d1d; color: #fca5a5; font-weight: bold"] * len(row)
             return [""] * len(row)
 
         styled = display_df.style.apply(highlight_injury, axis=1)

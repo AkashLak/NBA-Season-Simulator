@@ -94,15 +94,9 @@ def _transform_season(**context):
     player_df = pd.read_parquet(f"{_PROCESSED_DIR}/raw_player_current.parquet")
 
     transformed = transform_data({"team_stats": team_df, "player_stats": player_df})
-    save_to_parquet(
-        transformed["team_stats"], f"{_PROCESSED_DIR}/team_stats_current.parquet"
-    )
-    save_to_parquet(
-        transformed["player_stats"], f"{_PROCESSED_DIR}/player_stats_current.parquet"
-    )
-    save_to_parquet(
-        transformed["ml_features"], f"{_PROCESSED_DIR}/ml_features_current.parquet"
-    )
+    save_to_parquet(transformed["team_stats"], f"{_PROCESSED_DIR}/team_stats_current.parquet")
+    save_to_parquet(transformed["player_stats"], f"{_PROCESSED_DIR}/player_stats_current.parquet")
+    save_to_parquet(transformed["ml_features"], f"{_PROCESSED_DIR}/ml_features_current.parquet")
     print("Season transform complete")
 
 
@@ -116,9 +110,7 @@ def _transform_games(**context):
     ml_df = pd.read_parquet(f"{_PROCESSED_DIR}/ml_features.parquet")
 
     game_features = transform_games(game_logs, ml_df)
-    game_features.to_parquet(
-        f"{_PROCESSED_DIR}/game_features_current.parquet", index=False
-    )
+    game_features.to_parquet(f"{_PROCESSED_DIR}/game_features_current.parquet", index=False)
     print(f"Game transform complete: {len(game_features)} rows")
 
 
@@ -134,9 +126,7 @@ def _load_all(**context):
     engine = get_engine()
 
     # Season-level tables
-    team_df = normalize_team_stats(
-        pd.read_parquet(f"{_PROCESSED_DIR}/raw_team_current.parquet")
-    )
+    team_df = normalize_team_stats(pd.read_parquet(f"{_PROCESSED_DIR}/raw_team_current.parquet"))
     player_df = normalize_player_stats(
         pd.read_parquet(f"{_PROCESSED_DIR}/raw_player_current.parquet")
     )
@@ -157,17 +147,13 @@ def _load_all(**context):
 
     # Game-level table
     game_df = pd.read_parquet(f"{_PROCESSED_DIR}/game_features_current.parquet")
-    upsert_to_postgres(
-        game_df, "nba_game_features", engine, conflict_cols=["game_id", "team_id"]
-    )
+    upsert_to_postgres(game_df, "nba_game_features", engine, conflict_cols=["game_id", "team_id"])
 
     # Refresh Parquet fallback snapshots from full DB (not just current-season slice)
     full_ml = pd.read_sql(
         "SELECT * FROM ml_training_features ORDER BY team_id, season_year", engine
     )
-    full_game = pd.read_sql(
-        "SELECT * FROM nba_game_features ORDER BY team_id, game_date", engine
-    )
+    full_game = pd.read_sql("SELECT * FROM nba_game_features ORDER BY team_id, game_date", engine)
     save_to_parquet(full_ml, f"{_PROCESSED_DIR}/ml_features.parquet")
     save_to_parquet(full_game, f"{_PROCESSED_DIR}/game_features.parquet")
 
@@ -206,9 +192,7 @@ def _update_predictions(**context):
     if os.path.exists(report_path):
         with open(report_path) as f:
             rpt = json.load(f)
-        model_version = (
-            f"game_{rpt.get('winner', 'unknown')}_{rpt.get('trained_at', '')[:10]}"
-        )
+        model_version = f"game_{rpt.get('winner', 'unknown')}_{rpt.get('trained_at', '')[:10]}"
         rmse_conf = rpt.get("winner_metrics", {}).get("holdout_logloss", 5.0)
 
     print(f"Simulating season {season_year} for all teams (model: {model_version})...")
@@ -244,18 +228,12 @@ with DAG(
     tags=["nba", "etl", "weekly"],
 ) as data_dag:
 
-    t_ingest_season = PythonOperator(
-        task_id="ingest_season", python_callable=_ingest_season
-    )
-    t_ingest_games = PythonOperator(
-        task_id="ingest_games", python_callable=_ingest_games
-    )
+    t_ingest_season = PythonOperator(task_id="ingest_season", python_callable=_ingest_season)
+    t_ingest_games = PythonOperator(task_id="ingest_games", python_callable=_ingest_games)
     t_transform_season = PythonOperator(
         task_id="transform_season", python_callable=_transform_season
     )
-    t_transform_games = PythonOperator(
-        task_id="transform_games", python_callable=_transform_games
-    )
+    t_transform_games = PythonOperator(task_id="transform_games", python_callable=_transform_games)
     t_load_all = PythonOperator(task_id="load_all", python_callable=_load_all)
     t_update_preds = PythonOperator(
         task_id="update_predictions", python_callable=_update_predictions
@@ -299,10 +277,7 @@ def _check_should_retrain(**context) -> bool:
         engine = get_engine()
         with engine.connect() as conn:
             max_season = (
-                conn.execute(
-                    text("SELECT MAX(season_year) FROM nba_game_features")
-                ).scalar()
-                or 0
+                conn.execute(text("SELECT MAX(season_year) FROM nba_game_features")).scalar() or 0
             )
     except Exception as e:
         print(f"Could not query DB ({e}). Proceeding with retrain.")
@@ -310,13 +285,9 @@ def _check_should_retrain(**context) -> bool:
 
     should_retrain = int(max_season) > int(last_trained_year)
     if should_retrain:
-        print(
-            f"New seasons detected (max={max_season}, last_trained={last_trained_year})."
-        )
+        print(f"New seasons detected (max={max_season}, last_trained={last_trained_year}).")
     else:
-        print(
-            f"No new seasons (max={max_season} == last_trained={last_trained_year}). Skipping."
-        )
+        print(f"No new seasons (max={max_season} == last_trained={last_trained_year}). Skipping.")
     return should_retrain
 
 
@@ -378,9 +349,7 @@ def _evaluate_and_gate(**context):
     # Game model gate
     g_winner = game_report["winner"]
     g_metrics = game_report["winner_metrics"]
-    game_passed = (
-        g_metrics["holdout_logloss"] < 0.65 and g_metrics["holdout_auc"] > 0.62
-    )
+    game_passed = g_metrics["holdout_logloss"] < 0.65 and g_metrics["holdout_auc"] > 0.62
     print(
         f"Game model ({g_winner}): LogLoss={g_metrics['holdout_logloss']:.4f}, "
         f"AUC={g_metrics['holdout_auc']:.4f} → {'PASSED' if game_passed else 'FAILED'}"
@@ -398,10 +367,7 @@ def _evaluate_and_gate(**context):
         engine = get_engine()
         with engine.connect() as conn:
             max_season = (
-                conn.execute(
-                    text("SELECT MAX(season_year) FROM nba_game_features")
-                ).scalar()
-                or 0
+                conn.execute(text("SELECT MAX(season_year) FROM nba_game_features")).scalar() or 0
             )
     except Exception:
         max_season = 0

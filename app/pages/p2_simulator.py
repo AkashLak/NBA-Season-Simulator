@@ -67,17 +67,12 @@ orig_key = f"orig_ids_{team_id}_{selected_season}"
 
 if state_key not in st.session_state:
     roster = (
-        player_df[
-            (player_df["team_id"] == team_id)
-            & (player_df["season_year"] == selected_season)
-        ]
+        player_df[(player_df["team_id"] == team_id) & (player_df["season_year"] == selected_season)]
         .copy()
         .reset_index(drop=True)
     )
     st.session_state[state_key] = roster
-    st.session_state[orig_key] = (
-        set(roster["player_id"].tolist()) if not roster.empty else set()
-    )
+    st.session_state[orig_key] = set(roster["player_id"].tolist()) if not roster.empty else set()
 
 roster_df = st.session_state[state_key].copy()
 original_ids = st.session_state[orig_key]
@@ -106,9 +101,7 @@ def recompute_team_features(roster: pd.DataFrame) -> dict:
     )
     if qualified.empty:
         qualified = roster.copy()
-    total_min = (
-        qualified["minutes_pg"].sum() if "minutes_pg" in qualified.columns else 0
-    )
+    total_min = qualified["minutes_pg"].sum() if "minutes_pg" in qualified.columns else 0
     if total_min == 0:
         return {}
 
@@ -125,9 +118,7 @@ def recompute_team_features(roster: pd.DataFrame) -> dict:
         if "minutes_pg" in roster.columns
         else 0
     )
-    top_3_minutes_share = (
-        float(top3_min / total_team_min) if total_team_min > 0 else 0.7
-    )
+    top_3_minutes_share = float(top3_min / total_team_min) if total_team_min > 0 else 0.7
 
     new_min = (
         roster[~roster["player_id"].isin(original_ids)]["minutes_pg"].sum()
@@ -160,9 +151,7 @@ baseline_wins = _baseline_sim(team_id, predict_season)
 # ── Current roster display ─────────────────────────────────────────────────────
 st.subheader("Current Roster")
 display_cols = [
-    c
-    for c in ["player_name", "age", "games_played", "minutes_pg", "pie"]
-    if c in roster_df.columns
+    c for c in ["player_name", "age", "games_played", "minutes_pg", "pie"] if c in roster_df.columns
 ]
 st.dataframe(
     (
@@ -197,9 +186,7 @@ candidates = (
 for idx, row in roster_df.iterrows():
     pname = row.get("player_name", f"Player {idx}")
     pie_val = f"{row.get('pie', 0):.3f}" if "pie" in roster_df.columns else "N/A"
-    with st.expander(
-        f"Swap: {pname}  (PIE: {pie_val}, Min: {row.get('minutes_pg', '?'):.0f})"
-    ):
+    with st.expander(f"Swap: {pname}  (PIE: {pie_val}, Min: {row.get('minutes_pg', '?'):.0f})"):
         if candidates.empty or "player_id" not in candidates.columns:
             st.caption("No candidates available.")
             continue
@@ -219,32 +206,26 @@ for idx, row in roster_df.iterrows():
             key=f"swap_{idx}_{team_id}_{selected_season}",
         )
 
-        if swap_choice != "-- No Change --" and st.button(
-            "Apply Swap", key=f"apply_{idx}"
-        ):
+        if swap_choice != "-- No Change --" and st.button("Apply Swap", key=f"apply_{idx}"):
             new_player = candidates[candidates["player_id"] == swap_choice].iloc[0]
             new_pie = adjusted_pie(new_player, row)
             log_key = f"swap_log_{team_id}_{selected_season}"
-            st.session_state.setdefault(log_key, []).append({
-                "out": pname,
-                "in": new_player.get("player_name", str(swap_choice)),
-                "old_pie": row.get("pie", 0),
-                "new_pie": new_pie,
-                "minutes": row.get("minutes_pg", 0),
-            })
-            st.session_state[state_key].at[idx, "player_id"] = int(
-                new_player["player_id"]
+            st.session_state.setdefault(log_key, []).append(
+                {
+                    "out": pname,
+                    "in": new_player.get("player_name", str(swap_choice)),
+                    "old_pie": row.get("pie", 0),
+                    "new_pie": new_pie,
+                    "minutes": row.get("minutes_pg", 0),
+                }
             )
-            st.session_state[state_key].at[idx, "player_name"] = new_player.get(
-                "player_name", ""
-            )
+            st.session_state[state_key].at[idx, "player_id"] = int(new_player["player_id"])
+            st.session_state[state_key].at[idx, "player_name"] = new_player.get("player_name", "")
             st.session_state[state_key].at[idx, "pie"] = new_pie
             if "age" in new_player.index:
                 st.session_state[state_key].at[idx, "age"] = new_player["age"]
             if "games_played" in new_player.index:
-                st.session_state[state_key].at[idx, "games_played"] = new_player[
-                    "games_played"
-                ]
+                st.session_state[state_key].at[idx, "games_played"] = new_player["games_played"]
             st.rerun()
 
 log_key = f"swap_log_{team_id}_{selected_season}"
@@ -274,16 +255,12 @@ _current_ids = (
 )
 _is_modified = _current_ids != st.session_state.get(orig_key, set())
 st.subheader(
-    "Predicted Wins (Modified Roster)"
-    if _is_modified
-    else "Predicted Wins (Original Roster)"
+    "Predicted Wins (Modified Roster)" if _is_modified else "Predicted Wins (Original Roster)"
 )
 
 feats = recompute_team_features(st.session_state[state_key])
 if feats:
-    prior_row = ml_df[
-        (ml_df["team_id"] == team_id) & (ml_df["season_year"] == selected_season)
-    ]
+    prior_row = ml_df[(ml_df["team_id"] == team_id) & (ml_df["season_year"] == selected_season)]
     if not prior_row.empty:
         base_pie = float(prior_row.iloc[0].get("team_avg_pie", 0.10))
         base_net = float(prior_row.iloc[0].get("net_rating", 0.0))
@@ -301,13 +278,9 @@ if feats:
                     get_engine(),
                     team_quality_override={
                         "prev_net_rating": adj_net_rating,
-                        "prev_off_rating": float(
-                            prior_row.iloc[0].get("off_rating", 110)
-                        )
+                        "prev_off_rating": float(prior_row.iloc[0].get("off_rating", 110))
                         + delta_pie * net_rating_scale * 0.5,
-                        "prev_def_rating": float(
-                            prior_row.iloc[0].get("def_rating", 110)
-                        )
+                        "prev_def_rating": float(prior_row.iloc[0].get("def_rating", 110))
                         - delta_pie * net_rating_scale * 0.5,
                     },
                 )

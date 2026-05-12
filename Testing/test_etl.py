@@ -140,8 +140,7 @@ def test_lag_features_do_not_cross_team_boundaries():
     team2_2023 = result[(result["team_id"] == 2) & (result["season_year"] == 2023)]
     assert not team2_2023.empty
     assert team2_2023["prev_wins"].iloc[0] == 30.0, (
-        f"Expected 30.0 (team 2's own 2022 wins), "
-        f"got {team2_2023['prev_wins'].iloc[0]}"
+        f"Expected 30.0 (team 2's own 2022 wins), " f"got {team2_2023['prev_wins'].iloc[0]}"
     )
 
 
@@ -149,9 +148,7 @@ def test_first_season_per_team_has_nan_lag():
     df = _make_two_season_team_df()
     result = add_lag_features(df)
     first_rows = result[result["season_year"] == 2022]
-    assert (
-        first_rows["prev_wins"].isna().all()
-    ), "First season per team must have NaN lag features"
+    assert first_rows["prev_wins"].isna().all(), "First season per team must have NaN lag features"
 
 
 def test_lag_features_include_new_columns():
@@ -160,9 +157,7 @@ def test_lag_features_include_new_columns():
     assert "prev_std_dev_pie" in result.columns
     assert "prev_top_3_minutes_share" in result.columns
 
-    team1_2023 = result[
-        (result["team_id"] == 1) & (result["season_year"] == 2023)
-    ].iloc[0]
+    team1_2023 = result[(result["team_id"] == 1) & (result["season_year"] == 2023)].iloc[0]
     assert abs(team1_2023["prev_std_dev_pie"] - 0.02) < 1e-9
     assert abs(team1_2023["prev_top_3_minutes_share"] - 0.72) < 1e-9
 
@@ -240,9 +235,7 @@ def test_build_feature_row_midseason_does_not_raise():
             "avg_games_played",
         ]
     }
-    row = build_feature_row(
-        1, 2024, ml_df, current_partial_stats=partial, games_played=30
-    )
+    row = build_feature_row(1, 2024, ml_df, current_partial_stats=partial, games_played=30)
     assert row["prediction_mode"].iloc[0] == "mid-season"
 
 

@@ -41,9 +41,7 @@ def test_fetch_game_logs_win_flag_is_binary():
     from etl.ingest_games import fetch_game_logs
 
     df = fetch_game_logs("2023-24")
-    assert set(df["win"].dropna().unique()).issubset(
-        {0, 1}
-    ), "win column must contain only 0 and 1"
+    assert set(df["win"].dropna().unique()).issubset({0, 1}), "win column must contain only 0 and 1"
 
 
 @pytest.mark.integration
