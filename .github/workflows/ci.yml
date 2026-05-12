@@ -20,7 +20,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install linters
-        run: pip install black flake8 isort
+        run: pip install -r requirements-dev.txt
 
       - name: black
         run: black --check .
