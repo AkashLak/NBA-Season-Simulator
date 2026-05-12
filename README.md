@@ -4,11 +4,7 @@ A full-stack sports analytics platform that forecasts NBA season win totals, sim
 
 ## Demo
 
-
-
 https://github.com/user-attachments/assets/1987ed93-467a-4460-8bb6-3948471548da
-
-
 
 ## What it does
 
