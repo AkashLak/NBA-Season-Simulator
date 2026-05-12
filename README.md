@@ -2,6 +2,10 @@
 
 A full-stack sports analytics platform that forecasts NBA season win totals, simulates the impact of roster moves, and explains model decisions using SHAP. Backed by 25 years of NBA data, two ML models, and a league-wide game simulation engine.
 
+## Demo
+
+<!-- Drag and drop your .mp4 here via the GitHub web editor -->
+
 ## What it does
 
 Select any team and season. The app:
